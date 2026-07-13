@@ -1,0 +1,20 @@
+# Agent Directives & Project Context
+
+## 1. Tech Stack
+- **Framework:** Next.js 16.2 (Strictly App Router)
+- **Frontend:** React 19, Tailwind CSS 4
+- **UI Components:** Shadcn UI .
+- **Database:** PostgreSQL (Running locally via Docker)
+- **ORM:** Prisma
+
+## 2. Technical Rules
+- **Prisma Configuration:** The datasource `url` property is forbidden in `schema.prisma`. Database connection URLs must strictly reside in `prisma.config.ts`.
+- **Authentication:** Custom manual implementation using HTTP-only session cookies. Do not integrate NextAuth, Clerk, or Supabase Auth.
+- **Prototyping:** Assume UI/UX layouts may be referenced from Google Stitch (Google's AI-powered UI design tool).
+- **Rich Text Editor:** Use Novel (or a Tiptap-based equivalent) to provide a Notion-like WYSIWYG experience for the leave application forms.
+- **Admin Dashboard:** Utilize `@tanstack/react-table` combined with Shadcn UI for all role-based data grids and analytics panels.
+
+## 3. Code Generation
+- **Execution:** Write concise, production-ready TypeScript code. 
+- **Comments:** Explain complex logic only; do not add conversational filler, apologies, or redundant comments.
+- **Tooling:** Always check available MCP servers (`next-devtools`, `shadcn`, `local-postgres-db`) before writing complex UI components or database queries to verify the current workspace state.
