@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2, ArrowRight } from 'lucide-react';
 import { createUser } from '@/app/actions/users';
 
 import { Button } from '@/components/ui/button';
@@ -28,8 +28,15 @@ import {
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending}>
-      {pending ? 'Saving...' : 'Save User'}
+    <Button type="submit" disabled={pending} className="w-full h-11 text-base font-medium transition-all active:scale-[0.98] group">
+      {pending ? (
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+      ) : (
+        <>
+          Save User
+          <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+        </>
+      )}
     </Button>
   );
 }
@@ -60,23 +67,23 @@ export function AddUserDialog({ trigger }) {
       />
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add New User</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-xl font-semibold tracking-tight">Add New User</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
             Create a new user account. Their password will be auto-generated.
           </DialogDescription>
         </DialogHeader>
         <form action={clientAction}>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-5 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</Label>
               <Input id="name" name="name" placeholder="John Doe" required />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" placeholder="john@example.com" required />
+              <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email</Label>
+              <Input id="email" name="email" type="email" placeholder="john@university.edu" required />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="departmentId">Department</Label>
+              <Label htmlFor="departmentId" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Department</Label>
               <Select name="departmentId" required>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a department" />
@@ -88,7 +95,7 @@ export function AddUserDialog({ trigger }) {
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="designationId">Designation</Label>
+              <Label htmlFor="designationId" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Designation</Label>
               <Select name="designationId" required>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a designation" />

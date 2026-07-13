@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, ArrowRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -33,20 +33,23 @@ export function AddDepartmentDialog({ trigger }) {
       />
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add Department</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-xl font-semibold tracking-tight">Add Department</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
             Create a new department.
           </DialogDescription>
         </DialogHeader>
         <form>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-5 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</Label>
               <Input id="name" name="name" placeholder="Computer Science" required />
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" onClick={() => setOpen(false)}>Save Department</Button>
+            <Button type="button" onClick={() => setOpen(false)} className="w-full h-11 text-base font-medium transition-all active:scale-[0.98] group">
+              Save Department
+              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -1,0 +1,46 @@
+
+
+
+
+Chat chat rewrite the contents of the ARCHITECTURE.md file, i am giving you a high level overview of the project from the data that i have
+
+
+
+it will be a simple leave managment application, what do i mean by this is, a teacher will write a leave and apply for the leave, there are i think 7 types of leaves, the teacher will also write the to and from, and based on that teachers designation, the leave application will be forwarded for approval to one level higher, lets say the teacher is from the cse department, the application will then be send to cse hod for approval, if he/she approves then it will be send to the assistant dean for approval, then if he/she approves it will reach the registrar for approval ( i think that is the highest level for approval regarding this ), but now lets say the teacher is from another department, then the application will be forwarded to the hod of that very department but one college only has one assistant dean so ...
+
+
+
+now there are a limited number of leaves available right, so we have to create something like a leave bank stating how many leaves this person has taken before and how many are left, then there is also the people from management, and there is also the registrar and the vc what to do when these people want leaves, 
+
+
+
+
+
+
+
+
+
+
+
+
+
+chat that sounds good, there is one more thing above all these we will need a admin panel or admin section to overview everything and we also have to allow hods, deans and registrar to query and see who has taken how many leaves etc.
+
+hods will only be able to see their respective disciplines,
+
+
+
+chat one more thing we will need to do is, ther should be an interface to create the application, like a google docs like thingy, 
+
+
+
+
+
+
+
+
+
+okay chat that really looks like a solid schema and i really liked your concept of the manager, chat lets say the admin ever wants to setup whos manager is who, if we implement something like a gui system, something where he can maybe pull arrows from one box to the other to say who will be whose manager etc..
+
+what do you say about that idea 
+
