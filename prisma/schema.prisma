@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Connection string is managed externally in prisma.config.ts per project rules
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Designation {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  isActive    Boolean  @default(true)
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  users       User[]
+}
+
+model User {
+  id              String         @id @default(cuid())
+  email           String         @unique
+  passwordHash    String
+  name            String
+  
+  designationId   String?
+  departmentId    String?
+  
+  // The Dynamic Routing Chain: Who does this user report to?
+  reportsToId     String?        
+
+  designation     Designation?   @relation(fields: [designationId], references: [id])
+  department      Department?    @relation(fields: [departmentId], references: [id])
+  
+  manager         User?          @relation("ReportingChain", fields: [reportsToId], references: [id])
+  subordinates    User[]         @relation("ReportingChain")
+
+  leaveBalances   LeaveBalance[]
+  leavesApplied   LeaveRequest[] @relation("Applicant")
+  leavesToApprove LeaveRequest[] @relation("CurrentApprover")
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model LeaveType {
+  id          String         @id @default(cuid())
+  name        String         @unique
+  defaultDays Int            
+  isActive    Boolean        @default(true) 
+
+  balances    LeaveBalance[]
+  requests    LeaveRequest[]
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model LeaveBalance {
+  id          String    @id @default(cuid())
+  userId      String
+  leaveTypeId String
+  totalDays   Int       
+  usedDays    Int       @default(0)
+  year        Int       
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, leaveTypeId, year])
+}
+
+model LeaveRequest {
+  id              String        @id @default(cuid())
+  applicantId     String
+  leaveTypeId     String
+  fromDate        DateTime
+  toDate          DateTime
+  reason          String        // Will store rich text HTML/JSON from Novel editor
+  status          RequestStatus @default(PENDING)
+  
+  nextApproverId  String?
+  
+  leaveType       LeaveType     @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+  applicant       User          @relation("Applicant", fields: [applicantId], references: [id])
+  nextApprover    User?         @relation("CurrentApprover", fields: [nextApproverId], references: [id])
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Holiday {
+  id          String   @id @default(cuid())
+  name        String
+  date        DateTime @unique
+}

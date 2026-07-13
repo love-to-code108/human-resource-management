@@ -4,6 +4,7 @@
 - **Framework:** Next.js 16.2 (Strictly App Router)
 - **Frontend:** React 19, Tailwind CSS 4
 - **UI Components:** Shadcn UI .
+- **Node/Flow UI:** Use `reactflow` (React Flow) for interactive drag-and-drop hierarchy mapping.
 - **Database:** PostgreSQL (Running locally via Docker)
 - **ORM:** Prisma
 
