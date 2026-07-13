@@ -3,9 +3,10 @@
 ## 1. Tech Stack
 - **Framework:** Next.js 16.2 (Strictly App Router)
 - **Frontend:** React 19, Tailwind CSS 4
-- **UI Components:** Shadcn UI .
+- **UI Components:** Shadcn UI exclusively. Use the "Mira" style (compact/dense) for all components.
+- **Typography:** Use the "Inter" font via `next/font/google` as the global sans-serif default.
 - **Node/Flow UI:** Use `reactflow` (React Flow) for interactive drag-and-drop hierarchy mapping.
-- **Design System:** Impeccable (via `PRODUCT.md`). All generated UI must adhere to Impeccable's design rules.
+- **Design System:** Impeccable (via `PRODUCT.md`).
 - **Database:** PostgreSQL (Running locally via Docker)
 - **ORM:** Prisma
 
