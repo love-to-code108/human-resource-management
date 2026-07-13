@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Building2, Plus } from 'lucide-react';
+import { LayoutDashboard, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { AddUserDialog } from '@/components/AddUserDialog';
@@ -12,8 +12,6 @@ import { Button } from '@/components/ui/button';
 
 const navItems = [
   { name: 'Dashboard Overview', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Users', href: '/dashboard/users', icon: Users },
-  { name: 'Organization', href: '/dashboard/organization', icon: Building2 },
 ];
 
 export function Sidebar() {
