@@ -5,6 +5,7 @@
 - **Frontend:** React 19, Tailwind CSS 4
 - **UI Components:** Shadcn UI .
 - **Node/Flow UI:** Use `reactflow` (React Flow) for interactive drag-and-drop hierarchy mapping.
+- **Design System:** Impeccable (via `PRODUCT.md`). All generated UI must adhere to Impeccable's design rules.
 - **Database:** PostgreSQL (Running locally via Docker)
 - **ORM:** Prisma
 
@@ -16,6 +17,6 @@
 - **Admin Dashboard:** Utilize `@tanstack/react-table` combined with Shadcn UI for all role-based data grids and analytics panels.
 
 ## 3. Code Generation
-- **Execution:** Write concise, production-ready TypeScript code. 
+- **Execution:** Write concise, production-ready JavaScript code (.js / .jsx). Do NOT use TypeScript.
 - **Comments:** Explain complex logic only; do not add conversational filler, apologies, or redundant comments.
 - **Tooling:** Always check available MCP servers (`next-devtools`, `shadcn`, `local-postgres-db`) before writing complex UI components or database queries to verify the current workspace state.
