@@ -7,24 +7,24 @@ export function RoleNode({ data, selected }) {
 
   return (
     <div className={cn(
-      "relative min-w-[200px] rounded-xl border-2 bg-background p-4 shadow-sm transition-all hover:shadow-md",
-      isGlobal ? "border-primary/50" : "border-border",
-      selected && "ring-2 ring-primary ring-offset-2 border-primary bg-primary/5"
+      "relative min-w-[220px] rounded-xl border bg-background p-4 shadow-sm transition-all duration-200",
+      isGlobal ? "border-primary/40 bg-primary/5" : "border-border hover:border-primary/50 hover:shadow-md",
+      selected && "border-primary shadow-lg ring-1 ring-primary"
     )}>
-      {/* Target handle (for incoming connections / "reports to") */}
+      {/* Source handle (for outgoing connections / "reports to") - Now at TOP */}
       <Handle 
-        type="target" 
+        type="source" 
         position={Position.Top} 
-        className="w-3 h-3 border-2 border-background bg-muted-foreground"
+        className="w-4 h-4 border-2 border-background bg-blue-500"
       />
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <div className={cn(
-            "p-2 rounded-lg",
-            isGlobal ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+            "p-2 rounded-lg flex items-center justify-center",
+            isGlobal ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
           )}>
-            {isGlobal ? <Briefcase className="w-4 h-4" /> : <Building2 className="w-4 h-4" />}
+            {isGlobal ? <Briefcase className="w-5 h-5" /> : <Building2 className="w-5 h-5" />}
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-semibold leading-none">{data.designationName}</span>
@@ -32,17 +32,17 @@ export function RoleNode({ data, selected }) {
               <span className="text-xs text-muted-foreground mt-1">{data.departmentName}</span>
             )}
             {isGlobal && (
-              <span className="text-[10px] uppercase tracking-wider text-primary/70 font-bold mt-1">University-wide</span>
+              <span className="text-[10px] uppercase tracking-wider text-primary font-bold mt-1">University-wide</span>
             )}
           </div>
         </div>
       </div>
 
-      {/* Source handle (for outgoing connections / "manager of") */}
+      {/* Target handle (for incoming connections / "manager of") - Now at BOTTOM */}
       <Handle 
-        type="source" 
+        type="target" 
         position={Position.Bottom} 
-        className="w-3 h-3 border-2 border-background bg-primary"
+        className="w-4 h-4 border-2 border-background bg-green-500"
       />
     </div>
   );

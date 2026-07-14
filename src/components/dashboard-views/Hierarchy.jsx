@@ -81,17 +81,17 @@ function HierarchyBuilder() {
           .filter(n => n.parentId)
           .map(n => ({
             id: `e-${n.id}-${n.parentId}`,
-            source: n.parentId, // Manager is the source
-            target: n.id,       // Subordinate is the target
+            source: n.id,       // Subordinate is now the source
+            target: n.parentId, // Manager is the target
             type: 'smoothstep',
             animated: true,
             markerEnd: {
               type: MarkerType.ArrowClosed,
-              width: 20,
-              height: 20,
-              color: '#6366f1',
+              width: 15,
+              height: 15,
+              color: '#3b82f6', // blue-500
             },
-            style: { stroke: '#6366f1', strokeWidth: 2 },
+            style: { stroke: '#3b82f6', strokeWidth: 2 },
           }));
 
         setNodes(flowNodes);
@@ -122,12 +122,12 @@ function HierarchyBuilder() {
 
   const onConnect = useCallback(
     async (params) => {
-      // source = Manager, target = Subordinate
+      // source = Subordinate, target = Manager
       const { source, target } = params;
       
-      // Check if target already has a manager (parent)
-      const targetAlreadyHasParent = edges.some(e => e.target === target);
-      if (targetAlreadyHasParent) {
+      // Check if Subordinate already has a manager (parent)
+      const subordinateAlreadyHasManager = edges.some(e => e.source === source);
+      if (subordinateAlreadyHasManager) {
         toast.error("This role already reports to someone. Disconnect them first.");
         return;
       }
@@ -135,16 +135,16 @@ function HierarchyBuilder() {
       // Optimistically add edge
       const newEdge = {
         ...params,
-        id: `e-${target}-${source}`,
+        id: `e-${source}-${target}`,
         type: 'smoothstep',
         animated: true,
-        markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' },
-        style: { stroke: '#6366f1', strokeWidth: 2 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: '#3b82f6' },
+        style: { stroke: '#3b82f6', strokeWidth: 2 },
       };
       setEdges((eds) => addEdge(newEdge, eds));
 
-      // Save to backend (Update the target's parentId to be the source)
-      const res = await updateHierarchyConnection(target, source);
+      // Save to backend (Update the subordinate's parentId to be the manager)
+      const res = await updateHierarchyConnection(source, target);
       if (res.error) {
         toast.error(res.error);
         // revert edge
@@ -159,9 +159,8 @@ function HierarchyBuilder() {
   const onEdgesDelete = useCallback(
     async (deletedEdges) => {
       for (const edge of deletedEdges) {
-        // target is the subordinate, source is the manager.
-        // Disconnecting means setting target's parentId to null
-        const res = await updateHierarchyConnection(edge.target, null);
+        // Disconnecting means setting subordinate's (source) parentId to null
+        const res = await updateHierarchyConnection(edge.source, null);
         if (res.error) {
           toast.error(res.error);
         } else {
@@ -292,11 +291,17 @@ function HierarchyBuilder() {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden animate-in fade-in duration-500">
-      <div className="px-8 py-6 border-b bg-background z-10 shadow-sm flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Hierarchy Mapper</h2>
-          <p className="text-muted-foreground text-sm">Drag and drop nodes to define reporting lines. Connect a manager (bottom) to a subordinate (top).</p>
+    <div className="flex-1 flex flex-col h-full overflow-hidden animate-in fade-in duration-500 relative">
+      {/* Floating Header Header */}
+      <div className="absolute top-6 left-6 z-10">
+        <div className="bg-background/80 backdrop-blur-md border rounded-xl p-4 shadow-sm max-w-sm">
+          <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            Reporting Hierarchy
+          </h2>
+          <p className="text-muted-foreground text-xs mt-1.5 leading-relaxed">
+            Drag the <span className="text-indigo-500 font-bold px-1 rounded bg-indigo-500/10">Blue</span> handle from a subordinate to the <span className="text-emerald-500 font-bold px-1 rounded bg-emerald-500/10">Green</span> handle of a manager. Right-click any node or arrow to delete.
+          </p>
         </div>
       </div>
       
@@ -320,11 +325,14 @@ function HierarchyBuilder() {
           proOptions={{ hideAttribution: true }}
           className="bg-muted/30"
         >
-          <Background color="#ccc" gap={16} />
-          <Controls />
+          <Background color={resolvedTheme === 'dark' ? '#333' : '#e5e7eb'} gap={20} size={1.5} />
+          <Controls className="bg-background border shadow-sm rounded-md overflow-hidden" />
           
-          <Panel position="top-right" className="bg-background/95 backdrop-blur-sm p-4 rounded-xl shadow-lg border w-80">
-            <h3 className="font-semibold mb-4 text-sm uppercase tracking-wider">Add New Role Node</h3>
+          <Panel position="top-right" className="bg-background/90 backdrop-blur-md p-5 rounded-2xl shadow-xl border w-[320px]">
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b">
+              <Plus className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold text-sm tracking-wide">Add Role</h3>
+            </div>
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Department</label>
@@ -357,19 +365,22 @@ function HierarchyBuilder() {
                 Drop onto Canvas
               </Button>
             </div>
-            <div className="mt-4 pt-4 border-t text-xs text-muted-foreground">
-              <p className="mb-2"><strong>Tips:</strong></p>
-              <ul className="list-disc pl-4 space-y-1">
-                <li>Select a node and press <strong>Backspace</strong> to delete it.</li>
-                <li>Select an edge (wire) and press <strong>Backspace</strong> to disconnect.</li>
-              </ul>
+            <div className="mt-5 pt-4 border-t border-border/50 text-[11px] text-muted-foreground leading-relaxed flex flex-col gap-2">
+              <div className="flex gap-2">
+                <span className="shrink-0">•</span>
+                <span>Drag nodes to organize your graph. Layout saves automatically.</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="shrink-0">•</span>
+                <span>Right-click any node to delete the role permanently.</span>
+              </div>
             </div>
           </Panel>
         </ReactFlow>
 
         {menu && (
           <div 
-            className="fixed z-50 min-w-32 bg-background border rounded-md shadow-md p-1"
+            className="fixed z-50 min-w-40 bg-background/95 backdrop-blur-md border rounded-lg shadow-xl p-1.5 animate-in zoom-in-95 duration-100"
             style={{ top: menu.top, left: menu.left }}
           >
             <button 

@@ -127,3 +127,10 @@
     @apply font-sans;
   }
 }
+
+/* React Flow Custom Overrides */
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #e11d48 !important; /* Rose-600 / Destructive color */
+  stroke-width: 4px !important;
+  filter: drop-shadow(0 0 4px rgba(225, 29, 72, 0.4));
+}
