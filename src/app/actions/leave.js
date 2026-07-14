@@ -188,3 +188,150 @@ export async function withdrawLeave(leaveId) {
     return { error: 'Failed to withdraw leave.' };
   }
 }
+
+// ==========================================
+// MANAGER APPROVAL ACTIONS
+// ==========================================
+
+export async function getManagerApprovals() {
+  try {
+    const session = await getSession();
+    if (!session?.userId) return { error: 'Not authenticated' };
+
+    const user = await prisma.user.findUnique({ where: { id: session.userId } });
+    if (!user?.departmentId || !user?.designationId) {
+      return { success: true, leaves: [] }; // Not mapped, no approvals
+    }
+
+    const userNode = await prisma.hierarchyNode.findUnique({
+      where: {
+        departmentId_designationId: {
+          departmentId: user.departmentId,
+          designationId: user.designationId
+        }
+      }
+    });
+
+    if (!userNode) return { success: true, leaves: [] }; // Node doesn't exist
+
+    // Find all leaves pending at THIS node
+    const leaves = await prisma.leaveRequest.findMany({
+      where: {
+        pendingAtNodeId: userNode.id,
+        status: { in: ['PENDING'] } // We only show PENDING in the manager queue. If NEGOTIATING, it's back with the applicant.
+      },
+      include: {
+        applicant: {
+          include: {
+            designation: true,
+            department: true
+          }
+        },
+        leaveType: true,
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    return { success: true, leaves };
+  } catch (error) {
+    console.error('Error fetching manager approvals:', error);
+    return { error: 'Failed to fetch approvals.' };
+  }
+}
+
+export async function approveLeave(leaveId) {
+  try {
+    const session = await getSession();
+    if (!session?.userId) return { error: 'Not authenticated' };
+
+    const leave = await prisma.leaveRequest.findUnique({
+      where: { id: leaveId },
+      include: { pendingAtNode: true }
+    });
+
+    if (!leave) return { error: 'Leave request not found.' };
+
+    // Move to next node if there is a parent in the hierarchy
+    const nextNodeId = leave.pendingAtNode?.parentId;
+    
+    if (nextNodeId) {
+      // Still needs approval higher up
+      await prisma.leaveRequest.update({
+        where: { id: leaveId },
+        data: { pendingAtNodeId: nextNodeId }
+      });
+    } else {
+      // Final approval
+      await prisma.leaveRequest.update({
+        where: { id: leaveId },
+        data: { status: 'APPROVED', pendingAtNodeId: null }
+      });
+      
+      // Deduct balance
+      const requestedDays = Math.ceil((new Date(leave.toDate) - new Date(leave.fromDate)) / (1000 * 60 * 60 * 24)) + 1;
+      
+      const balance = await prisma.leaveBalance.findUnique({
+        where: {
+          userId_leaveTypeId_year: {
+            userId: leave.applicantId,
+            leaveTypeId: leave.leaveTypeId,
+            year: new Date().getFullYear()
+          }
+        }
+      });
+      
+      if (balance) {
+        await prisma.leaveBalance.update({
+          where: { id: balance.id },
+          data: { usedDays: balance.usedDays + requestedDays }
+        });
+      }
+    }
+
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error approving leave:', error);
+    return { error: 'Failed to approve leave.' };
+  }
+}
+
+export async function rejectLeave(leaveId) {
+  try {
+    const session = await getSession();
+    if (!session?.userId) return { error: 'Not authenticated' };
+
+    await prisma.leaveRequest.update({
+      where: { id: leaveId },
+      data: { status: 'REJECTED' }
+    });
+
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error rejecting leave:', error);
+    return { error: 'Failed to reject leave.' };
+  }
+}
+
+export async function proposeNewDates(leaveId, fromDate, toDate) {
+  try {
+    const session = await getSession();
+    if (!session?.userId) return { error: 'Not authenticated' };
+
+    await prisma.leaveRequest.update({
+      where: { id: leaveId },
+      data: { 
+        status: 'NEGOTIATING',
+        managerSuggestedFromDate: new Date(fromDate),
+        managerSuggestedToDate: new Date(toDate)
+      }
+    });
+
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error proposing dates:', error);
+    return { error: 'Failed to propose new dates.' };
+  }
+}
