@@ -103,24 +103,24 @@ export function UserManagement() {
   };
 
   return (
-    <div className="flex-1 p-6 lg:p-8 xl:p-12 animate-in fade-in duration-500 bg-muted/10 h-full overflow-y-auto">
-      <div className="max-w-6xl mx-auto space-y-8">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">User Management</h2>
-          <p className="text-muted-foreground mt-2">View the details and leave balances of your team members.</p>
+    <div className="flex-1 p-6 lg:p-10 animate-in fade-in duration-500 h-full overflow-y-auto">
+      <div className="max-w-4xl mx-auto space-y-8 pt-4 pb-16">
+        <div className="space-y-2">
+          <h2 className="text-3xl font-semibold tracking-tight">User Management</h2>
+          <p className="text-muted-foreground">View the details and leave balances of your team members.</p>
         </div>
 
-        <div className="flex items-center space-x-2 bg-background p-1 rounded-lg border max-w-sm">
+        <div className="flex items-center space-x-2 bg-background/50 p-1 border-b max-w-md">
           <Search className="w-4 h-4 text-muted-foreground ml-2" />
           <Input 
             placeholder="Search by name, email, or role..." 
-            className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent"
+            className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent shadow-none"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        <div className="bg-background border rounded-2xl shadow-sm overflow-hidden">
+        <div className="space-y-4">
           {isLoading ? (
             <div className="flex justify-center items-center py-20">
               <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
@@ -135,12 +135,12 @@ export function UserManagement() {
             </div>
           ) : (
             <Table>
-              <TableHeader className="bg-muted/50">
-                <TableRow>
-                  <TableHead className="w-[300px]">Employee</TableHead>
-                  <TableHead>Designation</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+              <TableHeader>
+                <TableRow className="border-b border-border hover:bg-transparent">
+                  <TableHead className="w-[300px] font-semibold">Employee</TableHead>
+                  <TableHead className="font-semibold">Designation</TableHead>
+                  <TableHead className="font-semibold">Department</TableHead>
+                  <TableHead className="text-right font-semibold">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -174,11 +174,11 @@ export function UserManagement() {
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         {isAdmin && !user.isAdmin && (
-                          <Button variant="ghost" size="icon" onClick={() => initiateDelete(user)} className="text-destructive hover:text-destructive hover:bg-destructive/10" title="Delete User">
+                          <Button variant="ghost" size="icon" onClick={() => initiateDelete(user)} className="text-muted-foreground hover:text-destructive hover:bg-transparent" title="Delete User">
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         )}
-                        <Button variant="ghost" size="sm" onClick={() => openDetails(user)} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                        <Button variant="ghost" size="sm" onClick={() => openDetails(user)} className="text-muted-foreground hover:text-foreground hover:bg-transparent">
                           View Details
                           <ChevronRight className="w-4 h-4 ml-1" />
                         </Button>
@@ -193,7 +193,7 @@ export function UserManagement() {
 
         {/* User Details Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px] border-border/50 shadow-md bg-card dark:bg-zinc-900/90 backdrop-blur-sm">
             {selectedUser && (
               <>
                 <DialogHeader>
@@ -244,9 +244,9 @@ export function UserManagement() {
                                   {remaining} days left
                                 </span>
                               </div>
-                              <div className="w-full bg-secondary rounded-full h-2 mt-2 overflow-hidden">
+                              <div className="w-full bg-secondary rounded-sm h-1.5 mt-2 overflow-hidden">
                                 <div 
-                                  className={`h-2 rounded-full ${percentUsed > 80 ? 'bg-destructive' : percentUsed > 50 ? 'bg-yellow-500' : 'bg-primary'}`} 
+                                  className={`h-1.5 rounded-sm ${percentUsed > 80 ? 'bg-destructive' : percentUsed > 50 ? 'bg-yellow-500' : 'bg-primary'}`} 
                                   style={{ width: `${percentUsed}%` }}
                                 ></div>
                               </div>
@@ -268,7 +268,7 @@ export function UserManagement() {
 
         {/* Delete Confirmation Alert Dialog */}
         <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
-          <AlertDialogContent>
+          <AlertDialogContent className="border-border/50 shadow-md bg-card dark:bg-zinc-900/90 backdrop-blur-sm">
             <AlertDialogHeader>
               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
               <AlertDialogDescription>
