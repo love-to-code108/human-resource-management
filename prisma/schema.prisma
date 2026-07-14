@@ -9,18 +9,20 @@ datasource db {
 
 enum RequestStatus {
   PENDING
+  NEGOTIATING
   APPROVED
   REJECTED
 }
 
 model Designation {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  isActive    Boolean  @default(true)
-  users         User[]
-  nodes         HierarchyNode[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String   @id @default(cuid())
+  name             String   @unique
+  isActive         Boolean  @default(true)
+  users            User[]
+  nodes            HierarchyNode[]
+  leaveAllocations LeaveAllocationRule[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Department {
@@ -72,16 +74,29 @@ model HierarchyNode {
 }
 
 model LeaveType {
-  id          String         @id @default(cuid())
-  name        String         @unique
-  defaultDays Int            
-  isActive    Boolean        @default(true) 
+  id            String   @id @default(cuid())
+  name          String   @unique
+  defaultDays   Int
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  balances    LeaveBalance[]
-  requests    LeaveRequest[]
+  leaveRequests LeaveRequest[]
+  leaveBalances LeaveBalance[]
+  allocations   LeaveAllocationRule[]
+}
 
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+model LeaveAllocationRule {
+  id             String      @id @default(cuid())
+  leaveTypeId    String
+  designationId  String
+  allocatedDays  Int
+  createdAt      DateTime    @default(now())
+
+  leaveType      LeaveType   @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+  designation    Designation @relation(fields: [designationId], references: [id], onDelete: Cascade)
+
+  @@unique([leaveTypeId, designationId])
 }
 
 model LeaveBalance {
@@ -108,6 +123,10 @@ model LeaveRequest {
   status          RequestStatus @default(PENDING)
   
   pendingAtNodeId String?
+  
+  // Negotiation fields
+  managerSuggestedFromDate DateTime?
+  managerSuggestedToDate   DateTime?
   
   leaveType       LeaveType     @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
   applicant       User          @relation("Applicant", fields: [applicantId], references: [id])

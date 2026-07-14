@@ -44,3 +44,20 @@ i am starting with the action buttons
 3. the add new department will have a exactly same view as the add new designation, everything will be same except for the data, that will be shown, edited etc.
 
  
+## The Architecture So Far (Phase 1-3 & Phase 4 Blueprint)
+*Added later for context preservation*
+
+### 1. The Abstract Node Hierarchy (Role-Based Routing)
+Instead of assigning User A to report to User B (which breaks when someone leaves the company), we created a `HierarchyNode` map. 
+A `HierarchyNode` represents a Role, which is a combination of a `Department` and `Designation` (e.g., Department: CSE, Designation: HOD).
+The visual drag-and-drop graph (`ReactFlow`) wires these nodes together. 
+When a user applies for leave, the system checks their Department & Designation, finds their specific node in the graph, looks at the parent node (manager), and routes the application to `pendingAtNodeId`. Whoever occupies that parent role can approve the leave.
+
+### 2. Leave Types & Allocations (Phase 4)
+Previously, a `LeaveType` just had a `defaultDays` value (e.g., Casual Leave = 12 days). 
+To support advanced constraints (e.g., a Dean getting 20 days), we introduced `LeaveAllocationRule`.
+This allows the Admin to override the default limit for specific designations directly within the "Add Leave Type" UI. When a user is created, the system uses this rule to calculate their `LeaveBalance`.
+
+### 3. Application State & Negotiations (Phase 4)
+Leave applications move beyond simple Pending/Approved/Rejected.
+If a manager cannot grant the exact dates, they can propose new dates. This shifts the `LeaveRequest` into a `NEGOTIATING` status. The application returns to the applicant's dashboard where they can Accept the proposed dates or Withdraw the application entirely.

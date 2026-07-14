@@ -7,6 +7,13 @@ export async function getLeaveTypes() {
   try {
     const leaveTypes = await prisma.leaveType.findMany({
       orderBy: { createdAt: 'asc' },
+      include: {
+        allocations: {
+          include: {
+            designation: true
+          }
+        }
+      }
     });
     return { success: true, leaveTypes };
   } catch (error) {
@@ -15,10 +22,26 @@ export async function getLeaveTypes() {
   }
 }
 
-export async function addLeaveType(name, defaultDays) {
+export async function addLeaveType(name, defaultDays, overrides = []) {
   try {
     const newLeaveType = await prisma.leaveType.create({
-      data: { name, defaultDays: parseInt(defaultDays) },
+      data: { 
+        name, 
+        defaultDays: parseInt(defaultDays),
+        allocations: {
+          create: overrides.map(o => ({
+            designationId: o.designationId,
+            allocatedDays: parseInt(o.allocatedDays)
+          }))
+        }
+      },
+      include: {
+        allocations: {
+          include: {
+            designation: true
+          }
+        }
+      }
     });
     revalidatePath('/'); 
     return { success: true, leaveType: newLeaveType };
@@ -28,11 +51,33 @@ export async function addLeaveType(name, defaultDays) {
   }
 }
 
-export async function updateLeaveType(id, name, defaultDays) {
+export async function updateLeaveType(id, name, defaultDays, overrides = []) {
   try {
+    // 1. Delete all existing overrides for this leave type
+    await prisma.leaveAllocationRule.deleteMany({
+      where: { leaveTypeId: id }
+    });
+
+    // 2. Update the leave type and recreate overrides
     const updatedLeaveType = await prisma.leaveType.update({
       where: { id },
-      data: { name, defaultDays: parseInt(defaultDays) },
+      data: { 
+        name, 
+        defaultDays: parseInt(defaultDays),
+        allocations: {
+          create: overrides.map(o => ({
+            designationId: o.designationId,
+            allocatedDays: parseInt(o.allocatedDays)
+          }))
+        }
+      },
+      include: {
+        allocations: {
+          include: {
+            designation: true
+          }
+        }
+      }
     });
     revalidatePath('/');
     return { success: true, leaveType: updatedLeaveType };
