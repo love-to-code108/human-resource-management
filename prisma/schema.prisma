@@ -4,67 +4,99 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // Connection string is managed externally in prisma.config.ts per project rules
+  url      = env("DATABASE_URL")
 }
 
 enum RequestStatus {
   PENDING
+  NEGOTIATING
   APPROVED
   REJECTED
 }
 
 model Designation {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  isActive    Boolean  @default(true)
-  users       User[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String   @id @default(cuid())
+  name             String   @unique
+  isActive         Boolean  @default(true)
+  users            User[]
+  nodes            HierarchyNode[]
+  leaveAllocations LeaveAllocationRule[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Department {
   id          String   @id @default(cuid())
   name        String   @unique
   users       User[]
+  nodes       HierarchyNode[]
 }
 
 model User {
   id              String         @id @default(cuid())
   email           String         @unique
-  passwordHash    String
+  password        String
+  isAdmin         Boolean        @default(false)
   name            String
   
   designationId   String?
   departmentId    String?
   
-  // The Dynamic Routing Chain: Who does this user report to?
-  reportsToId     String?        
-
+  // The hierarchy is completely handled by the HierarchyNode map!
+  
   designation     Designation?   @relation(fields: [designationId], references: [id])
   department      Department?    @relation(fields: [departmentId], references: [id])
-  
-  manager         User?          @relation("ReportingChain", fields: [reportsToId], references: [id])
-  subordinates    User[]         @relation("ReportingChain")
 
   leaveBalances   LeaveBalance[]
   leavesApplied   LeaveRequest[] @relation("Applicant")
-  leavesToApprove LeaveRequest[] @relation("CurrentApprover")
 
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 }
 
+model HierarchyNode {
+  id              String   @id @default(cuid())
+  designationId   String
+  departmentId    String
+  parentId        String?
+  
+  // The connections
+  designation     Designation @relation(fields: [designationId], references: [id])
+  department      Department  @relation(fields: [departmentId], references: [id])
+  parent          HierarchyNode?  @relation("NodeHierarchy", fields: [parentId], references: [id])
+  children        HierarchyNode[] @relation("NodeHierarchy")
+
+  // The queue of leaves waiting for THIS ROLE to approve them
+  pendingApprovals LeaveRequest[] @relation("NodeApprover")
+
+  // Ensure only one node exists per combination
+  @@unique([departmentId, designationId]) 
+}
+
 model LeaveType {
-  id          String         @id @default(cuid())
-  name        String         @unique
-  defaultDays Int            
-  isActive    Boolean        @default(true) 
+  id            String   @id @default(cuid())
+  name          String   @unique
+  defaultDays   Int
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  balances    LeaveBalance[]
-  requests    LeaveRequest[]
+  leaveRequests LeaveRequest[]
+  leaveBalances LeaveBalance[]
+  allocations   LeaveAllocationRule[]
+}
 
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+model LeaveAllocationRule {
+  id             String      @id @default(cuid())
+  leaveTypeId    String
+  designationId  String
+  allocatedDays  Int
+  createdAt      DateTime    @default(now())
+
+  leaveType      LeaveType   @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+  designation    Designation @relation(fields: [designationId], references: [id], onDelete: Cascade)
+
+  @@unique([leaveTypeId, designationId])
 }
 
 model LeaveBalance {
@@ -90,11 +122,15 @@ model LeaveRequest {
   reason          String        // Will store rich text HTML/JSON from Novel editor
   status          RequestStatus @default(PENDING)
   
-  nextApproverId  String?
+  pendingAtNodeId String?
+  
+  // Negotiation fields
+  managerSuggestedFromDate DateTime?
+  managerSuggestedToDate   DateTime?
   
   leaveType       LeaveType     @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
-  applicant       User          @relation("Applicant", fields: [applicantId], references: [id])
-  nextApprover    User?         @relation("CurrentApprover", fields: [nextApproverId], references: [id])
+  applicant       User          @relation("Applicant", fields: [applicantId], references: [id], onDelete: Cascade)
+  pendingAtNode   HierarchyNode? @relation("NodeApprover", fields: [pendingAtNodeId], references: [id])
 
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
