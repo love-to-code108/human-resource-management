@@ -21,6 +21,16 @@ import { getDepartments } from '@/app/actions/department';
 import { getDesignations } from '@/app/actions/designation';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTheme } from 'next-themes';
@@ -41,6 +51,7 @@ function HierarchyBuilder() {
   const [selectedDesigName, setSelectedDesigName] = useState('');
   const [isAddingNode, setIsAddingNode] = useState(false);
   const [menu, setMenu] = useState(null); // { id, top, left, type }
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   
   const { resolvedTheme } = useTheme();
   const reactFlowInstance = useReactFlow();
@@ -229,8 +240,11 @@ function HierarchyBuilder() {
     setIsAddingNode(false);
   };
 
-  const handleDeleteNode = async (nodeId) => {
-    if (!confirm("Are you sure you want to delete this node?")) return;
+  const handleDeleteNode = (nodeId) => {
+    setDeleteConfirmId(nodeId);
+  };
+
+  const executeDeleteNode = async (nodeId) => {
     const res = await deleteHierarchyNode(nodeId);
     if (res.error) {
       toast.error(res.error);
@@ -239,6 +253,7 @@ function HierarchyBuilder() {
       setNodes((nds) => nds.filter((n) => n.id !== nodeId));
       setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
     }
+    setDeleteConfirmId(null);
   };
 
   const onNodeContextMenu = useCallback(
@@ -393,6 +408,24 @@ function HierarchyBuilder() {
           </div>
         )}
       </div>
+
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Role</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this role from the hierarchy? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => executeDeleteNode(deleteConfirmId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }

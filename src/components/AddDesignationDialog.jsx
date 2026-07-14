@@ -11,7 +11,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 import {
   Table,
   TableBody,
@@ -30,6 +41,7 @@ export function AddDesignationDialog({ trigger }) {
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   
   useEffect(() => {
     if (open) {
@@ -50,9 +62,12 @@ export function AddDesignationDialog({ trigger }) {
     if (!newName.trim()) return;
     const res = await addDesignation(newName);
     if (res.success) {
+      toast.success("Designation added successfully.");
       setDesignations([...designations, res.designation]);
       setNewName('');
       setIsAdding(false);
+    } else {
+      toast.error(res.error || "Failed to add designation");
     }
   };
 
@@ -60,16 +75,27 @@ export function AddDesignationDialog({ trigger }) {
     if (!editName.trim()) return;
     const res = await updateDesignation(id, editName);
     if (res.success) {
+      toast.success("Designation updated.");
       setDesignations(designations.map(d => d.id === id ? { ...d, name: res.designation.name } : d));
       setEditingId(null);
+    } else {
+      toast.error(res.error || "Failed to update designation");
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = (id) => {
+    setDeleteConfirmId(id);
+  };
+
+  const executeDelete = async (id) => {
     const res = await deleteDesignation(id);
     if (res.success) {
+      toast.success("Designation deleted successfully.");
       setDesignations(designations.filter(d => d.id !== id));
+    } else {
+      toast.error(res.error || "Failed to delete designation");
     }
+    setDeleteConfirmId(null);
   };
 
   return (
@@ -205,6 +231,24 @@ export function AddDesignationDialog({ trigger }) {
           )}
         </div>
       </DialogContent>
+
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Designation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this designation? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => executeDelete(deleteConfirmId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </Dialog>
   );
 }

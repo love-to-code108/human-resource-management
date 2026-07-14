@@ -6,6 +6,7 @@ import { Plus, Loader2, ArrowRight } from 'lucide-react';
 import { createUser } from '@/app/actions/users';
 import { getDepartments } from '@/app/actions/department';
 import { getDesignations } from '@/app/actions/designation';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -69,8 +70,9 @@ export function AddUserDialog({ trigger }) {
   async function clientAction(formData) {
     const result = await createUser(formData);
     if (result?.error) {
-      alert(result.error);
+      toast.error(result.error);
     } else {
+      toast.success("User created successfully!");
       setOpen(false);
     }
   }

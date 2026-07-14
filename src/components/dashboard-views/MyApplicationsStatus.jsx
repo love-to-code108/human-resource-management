@@ -15,11 +15,22 @@ import {
   CardTitle,
   CardDescription
 } from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export function MyApplicationsStatus() {
   const [leaves, setLeaves] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
+  const [withdrawConfirmId, setWithdrawConfirmId] = useState(null);
 
   useEffect(() => {
     loadLeaves();
@@ -49,7 +60,6 @@ export function MyApplicationsStatus() {
   };
 
   const handleWithdraw = async (id) => {
-    if (!confirm("Are you sure you want to withdraw this application?")) return;
     setProcessingId(id);
     const res = await withdrawLeave(id);
     if (res.success) {
@@ -59,6 +69,7 @@ export function MyApplicationsStatus() {
       toast.error(res.error);
     }
     setProcessingId(null);
+    setWithdrawConfirmId(null);
   };
 
   const getStatusBadge = (status) => {
@@ -173,7 +184,7 @@ export function MyApplicationsStatus() {
                     <>
                       <Button 
                         variant="destructive" 
-                        onClick={() => handleWithdraw(leave.id)}
+                        onClick={() => setWithdrawConfirmId(leave.id)}
                         disabled={processingId === leave.id}
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
@@ -191,7 +202,7 @@ export function MyApplicationsStatus() {
                   ) : leave.status === 'PENDING' ? (
                     <Button 
                       variant="outline" 
-                      onClick={() => handleWithdraw(leave.id)}
+                      onClick={() => setWithdrawConfirmId(leave.id)}
                       disabled={processingId === leave.id}
                       className="text-destructive hover:text-destructive hover:bg-destructive/10"
                     >
@@ -205,6 +216,24 @@ export function MyApplicationsStatus() {
           </div>
         )}
       </div>
+
+      <AlertDialog open={!!withdrawConfirmId} onOpenChange={(open) => !open && setWithdrawConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Withdraw Application</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to withdraw this application? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleWithdraw(withdrawConfirmId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Withdraw
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }

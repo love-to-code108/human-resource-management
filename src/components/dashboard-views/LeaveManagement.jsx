@@ -23,6 +23,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -36,6 +46,10 @@ export function LeaveManagement() {
   const [proposingFor, setProposingFor] = useState(null);
   const [newFromDate, setNewFromDate] = useState('');
   const [newToDate, setNewToDate] = useState('');
+
+  // Confirmation States
+  const [approveConfirmId, setApproveConfirmId] = useState(null);
+  const [rejectConfirmId, setRejectConfirmId] = useState(null);
 
   useEffect(() => {
     loadLeaves();
@@ -53,7 +67,6 @@ export function LeaveManagement() {
   };
 
   const handleApprove = async (id) => {
-    if (!confirm("Are you sure you want to approve this leave?")) return;
     setProcessingId(id);
     const res = await approveLeave(id);
     if (res.success) {
@@ -63,10 +76,10 @@ export function LeaveManagement() {
       toast.error(res.error);
     }
     setProcessingId(null);
+    setApproveConfirmId(null);
   };
 
   const handleReject = async (id) => {
-    if (!confirm("Are you sure you want to reject this leave?")) return;
     setProcessingId(id);
     const res = await rejectLeave(id);
     if (res.success) {
@@ -76,6 +89,7 @@ export function LeaveManagement() {
       toast.error(res.error);
     }
     setProcessingId(null);
+    setRejectConfirmId(null);
   };
 
   const handleProposeSubmit = async (e) => {
@@ -197,7 +211,7 @@ export function LeaveManagement() {
                   <Button 
                     variant="outline"
                     className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => handleReject(leave.id)}
+                    onClick={() => setRejectConfirmId(leave.id)}
                     disabled={processingId === leave.id}
                   >
                     <X className="w-4 h-4 mr-2" />
@@ -205,7 +219,7 @@ export function LeaveManagement() {
                   </Button>
                   <Button 
                     className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                    onClick={() => handleApprove(leave.id)}
+                    onClick={() => setApproveConfirmId(leave.id)}
                     disabled={processingId === leave.id}
                   >
                     {processingId === leave.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
@@ -266,6 +280,41 @@ export function LeaveManagement() {
         </Dialog>
 
       </div>
+
+      <AlertDialog open={!!approveConfirmId} onOpenChange={(open) => !open && setApproveConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approve Leave</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to approve this leave application? This action will notify the employee.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleApprove(approveConfirmId)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              Approve
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!rejectConfirmId} onOpenChange={(open) => !open && setRejectConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject Leave</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to reject this leave application? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleReject(rejectConfirmId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Reject
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }

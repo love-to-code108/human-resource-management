@@ -11,6 +11,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -31,6 +41,7 @@ export function AddLeaveTypeDialog({ trigger }) {
   const [leaveTypes, setLeaveTypes] = useState([]);
   const [designations, setDesignations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   
   // Form View State
   const [showForm, setShowForm] = useState(false);
@@ -154,7 +165,11 @@ export function AddLeaveTypeDialog({ trigger }) {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = (id) => {
+    setDeleteConfirmId(id);
+  };
+
+  const executeDelete = async (id) => {
     const res = await deleteLeaveType(id);
     if (res.success) {
       toast.success("Leave type deleted");
@@ -162,6 +177,7 @@ export function AddLeaveTypeDialog({ trigger }) {
     } else {
       toast.error("Failed to delete.");
     }
+    setDeleteConfirmId(null);
   };
 
   return (
@@ -342,6 +358,24 @@ export function AddLeaveTypeDialog({ trigger }) {
           )}
         </div>
       </DialogContent>
+
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Leave Type</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this leave type? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => executeDelete(deleteConfirmId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </Dialog>
   );
 }
