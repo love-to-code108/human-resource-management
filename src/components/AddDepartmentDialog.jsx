@@ -100,14 +100,12 @@ export function AddDepartmentDialog({ trigger }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Add Department
-          </Button>
-        )}
-      </DialogTrigger>
+      <DialogTrigger render={trigger || (
+        <Button className="flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          Add Department
+        </Button>
+      )} />
       <DialogContent className="sm:max-w-[550px]" showCloseButton={false}>
         <DialogHeader className="flex flex-row items-center justify-between">
           <div>

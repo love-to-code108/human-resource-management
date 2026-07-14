@@ -1,15 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getUserSettings, updateUserName, updateUserPassword } from '@/app/actions/userSettings';
-import { Loader2, User, Building, Settings as SettingsIcon, Briefcase, Camera, Check, Lock } from 'lucide-react';
+import { getUserSettings, updateUserName, updateUserPassword, updateUserAvatar } from '@/app/actions/userSettings';
+import { Loader2, User, Building, Settings as SettingsIcon, Briefcase, Camera, Check, Lock, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import Cropper from 'react-easy-crop';
+import getCroppedImg from '@/lib/cropImage';
+import { useRouter } from 'next/navigation';
 
 export function UserSettings() {
+  const router = useRouter();
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingName, setIsSavingName] = useState(false);
@@ -18,6 +23,14 @@ export function UserSettings() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+
+  // Cropper State
+  const [imageSrc, setImageSrc] = useState(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  const [isCropping, setIsCropping] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -77,6 +90,48 @@ export function UserSettings() {
     setIsSavingPassword(false);
   };
 
+  const onFileChange = async (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.addEventListener('load', () => {
+        setImageSrc(reader.result);
+        setIsCropping(true);
+      });
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const onCropComplete = (croppedArea, croppedAreaPixels) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  };
+
+  const handleUploadAvatar = async () => {
+    try {
+      setIsUploadingAvatar(true);
+      const croppedImageBase64 = await getCroppedImg(imageSrc, croppedAreaPixels);
+      
+      const res = await updateUserAvatar(croppedImageBase64);
+      if (res.success) {
+        toast.success('Profile picture updated successfully!');
+        setData({
+          ...data,
+          user: { ...data.user, avatar: croppedImageBase64 }
+        });
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to update profile picture');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('An error occurred while cropping the image');
+    } finally {
+      setIsUploadingAvatar(false);
+      setIsCropping(false);
+      setImageSrc(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex-1 flex justify-center items-center h-full">
@@ -114,22 +169,31 @@ export function UserSettings() {
                 {/* Avatar Section */}
                 <div className="flex items-center gap-6">
                   <div className="relative group">
-                    <Avatar className="h-24 w-24 border-4 border-background shadow-md">
-                      {data.user.avatar && <AvatarImage src={data.user.avatar} />}
-                      <AvatarFallback className="bg-primary text-primary-foreground text-3xl font-bold">
-                        {data.user.name.substring(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-not-allowed">
-                      <Camera className="w-6 h-6 text-white" />
-                    </div>
+                    <label htmlFor="avatar-upload" className="cursor-pointer">
+                      <Avatar className="h-24 w-24 border-4 border-background shadow-md transition-transform group-hover:scale-105">
+                        {data.user.avatar && <AvatarImage src={data.user.avatar} />}
+                        <AvatarFallback className="bg-primary text-primary-foreground text-3xl font-bold">
+                          {data.user.name.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Camera className="w-6 h-6 text-white" />
+                      </div>
+                    </label>
+                    <input 
+                      id="avatar-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={onFileChange}
+                    />
                   </div>
                   <div>
                     <h4 className="font-medium">Profile Picture</h4>
-                    <p className="text-sm text-muted-foreground mb-3">Avatar upload functionality coming in the next phase.</p>
-                    <Button variant="outline" size="sm" disabled>
+                    <p className="text-sm text-muted-foreground mb-3">Upload a square image, ideally 200x200px.</p>
+                    <Label htmlFor="avatar-upload" className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-3 cursor-pointer">
                       Change Avatar
-                    </Button>
+                    </Label>
                   </div>
                 </div>
 
@@ -280,6 +344,42 @@ export function UserSettings() {
 
         </div>
       </div>
+
+      {/* Cropper Modal */}
+      <Dialog open={isCropping} onOpenChange={setIsCropping}>
+        <DialogContent className="sm:max-w-[500px]" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Crop Profile Picture</DialogTitle>
+            <DialogDescription>
+              Drag and zoom to align your face perfectly inside the circle.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="relative w-full h-[300px] bg-black/10 rounded-md overflow-hidden my-4">
+            {imageSrc && (
+              <Cropper
+                image={imageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                onCropChange={setCrop}
+                onCropComplete={onCropComplete}
+                onZoomChange={setZoom}
+              />
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsCropping(false); setImageSrc(null); }}>
+              Cancel
+            </Button>
+            <Button onClick={handleUploadAvatar} disabled={isUploadingAvatar}>
+              {isUploadingAvatar ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+              Apply & Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

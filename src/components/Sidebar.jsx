@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -23,7 +23,7 @@ import { AddLeaveTypeDialog } from '@/components/AddLeaveTypeDialog';
 import { logoutAction } from '@/app/actions/auth';
 import { useRouter } from 'next/navigation';
 
-export function Sidebar({ isAdmin, isManager, userName, userEmail }) {
+export function Sidebar({ isAdmin, isManager, userName, userEmail, userAvatar }) {
   const activeView = useDashboardStore((state) => state.activeView);
   const setActiveView = useDashboardStore((state) => state.setActiveView);
   const router = useRouter();
@@ -146,6 +146,7 @@ export function Sidebar({ isAdmin, isManager, userName, userEmail }) {
           <DropdownMenuTrigger render={
             <button className="w-full flex items-center gap-3 rounded-md p-2 hover:bg-muted/50 transition-colors text-left outline-none">
               <Avatar className="h-9 w-9 shrink-0 rounded-full">
+                {userAvatar && <AvatarImage src={userAvatar} />}
                 <AvatarFallback className="bg-purple-600 text-white text-xs font-bold rounded-full">
                   {userName.substring(0, 2).toUpperCase()}
                 </AvatarFallback>
@@ -165,11 +166,9 @@ export function Sidebar({ isAdmin, isManager, userName, userEmail }) {
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
               </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer" onSelect={(e) => e.preventDefault()} asChild>
-                <div className="flex items-center w-full">
-                  <ThemeToggle asDropdownItem />
-                </div>
-              </DropdownMenuItem>
+              <div className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                <ThemeToggle asDropdownItem />
+              </div>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem disabled className="flex justify-between">

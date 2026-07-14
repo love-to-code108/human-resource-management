@@ -79,16 +79,12 @@ export function AddUserDialog({ trigger }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          trigger || (
-            <Button className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Add New User
-            </Button>
-          )
-        }
-      />
+      <DialogTrigger render={trigger || (
+        <Button className="flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          Add User
+        </Button>
+      )} />
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold tracking-tight">Add New User</DialogTitle>

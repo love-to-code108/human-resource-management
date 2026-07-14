@@ -182,14 +182,12 @@ export function AddLeaveTypeDialog({ trigger }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Add Leave Type
-          </Button>
-        )}
-      </DialogTrigger>
+      <DialogTrigger render={trigger || (
+        <Button className="flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          Add Leave Type
+        </Button>
+      )} />
       <DialogContent className="sm:max-w-[700px] overflow-hidden flex flex-col max-h-[85vh]" showCloseButton={false}>
         <DialogHeader className="flex flex-row items-center justify-between shrink-0">
           <div>

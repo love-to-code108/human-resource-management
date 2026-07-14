@@ -15,7 +15,7 @@ export default async function DashboardLayout({ children }) {
   if (session?.userId) {
     user = await prisma.user.findUnique({
       where: { id: session.userId },
-      select: { name: true, email: true }
+      select: { name: true, email: true, avatar: true }
     });
   }
 
@@ -26,6 +26,7 @@ export default async function DashboardLayout({ children }) {
         isManager={session?.isManager} 
         userName={user?.name || 'User'} 
         userEmail={user?.email || ''} 
+        userAvatar={user?.avatar || null}
       />
       <main className="flex-1 overflow-y-auto">
         {children}

@@ -99,3 +99,24 @@ export async function updateUserPassword(currentPassword, newPassword) {
     return { error: 'Failed to update password' };
   }
 }
+
+export async function updateUserAvatar(base64Image) {
+  try {
+    const payload = await getSession();
+    if (!payload) return { error: 'Not authenticated' };
+
+    if (!base64Image || !base64Image.startsWith('data:image/')) {
+      return { error: 'Invalid image format' };
+    }
+
+    await prisma.user.update({
+      where: { id: payload.userId },
+      data: { avatar: base64Image }
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating avatar:', error);
+    return { error: 'Failed to update avatar' };
+  }
+}
