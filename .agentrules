@@ -9,6 +9,7 @@
 - **Design System:** Impeccable (via `PRODUCT.md`).
 - **Database:** PostgreSQL (Running locally via Docker)
 - **ORM:** Prisma
+- **State Management:** Zustand (for global/client-side state management)
 
 ## 2. Technical Rules
 - **Prisma Configuration:** The datasource `url` property is forbidden in `schema.prisma`. Database connection URLs must strictly reside in `prisma.config.ts`.

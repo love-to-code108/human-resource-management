@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // Connection string is managed externally in prisma.config.ts per project rules
+  url      = env("DATABASE_URL")
 }
 
 enum RequestStatus {

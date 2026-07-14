@@ -5,9 +5,7 @@ export async function middleware(request) {
   const token = request.cookies.get('elms_session')?.value;
 
   if (!token) {
-    // TODO: Re-enable auth redirect after initial admin account is created
-    // return NextResponse.redirect(new URL('/login', request.url));
-    return NextResponse.next();
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   try {
@@ -19,9 +17,7 @@ export async function middleware(request) {
     
     return NextResponse.next();
   } catch (error) {
-    // TODO: Re-enable auth redirect after initial admin account is created
-    // return NextResponse.redirect(new URL('/login', request.url));
-    return NextResponse.next();
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 }
 

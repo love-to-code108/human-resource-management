@@ -27,7 +27,8 @@ export async function createSession(userId, designationId, departmentId, isAdmin
   const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const session = await encrypt({ userId, designationId, departmentId, isAdmin, expires });
 
-  cookies().set('elms_session', session, {
+  const cookieStore = await cookies();
+  cookieStore.set('elms_session', session, {
     expires,
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -36,12 +37,14 @@ export async function createSession(userId, designationId, departmentId, isAdmin
   });
 }
 
-export function deleteSession() {
-  cookies().delete('elms_session');
+export async function deleteSession() {
+  const cookieStore = await cookies();
+  cookieStore.delete('elms_session');
 }
 
 export async function getSession() {
-  const token = cookies().get('elms_session')?.value;
+  const cookieStore = await cookies();
+  const token = cookieStore.get('elms_session')?.value;
   if (!token) return null;
   return await decrypt(token);
 }
