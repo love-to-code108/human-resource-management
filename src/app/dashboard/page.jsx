@@ -8,6 +8,7 @@ import { MyApplicationsStatus } from '@/components/dashboard-views/MyApplication
 import { Hierarchy } from '@/components/dashboard-views/Hierarchy';
 import { LeaveManagement } from '@/components/dashboard-views/LeaveManagement';
 import { UserManagement } from '@/components/dashboard-views/UserManagement';
+import { UserSettings } from '@/components/dashboard-views/UserSettings';
 
 export default function DashboardPage() {
   const activeView = useDashboardStore((state) => state.activeView);
@@ -39,6 +40,8 @@ export default function DashboardPage() {
       return <Hierarchy />;
     case 'leave-management':
       return <LeaveManagement />;
+    case 'settings':
+      return <UserSettings />;
     case 'user-management':
       return <UserManagement />;
     default:

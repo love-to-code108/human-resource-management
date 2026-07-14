@@ -41,6 +41,7 @@ model User {
   
   designationId   String?
   departmentId    String?
+  avatar          String?
   
   // The hierarchy is completely handled by the HierarchyNode map!
   

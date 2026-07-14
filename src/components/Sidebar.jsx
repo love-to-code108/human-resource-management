@@ -141,7 +141,7 @@ export function Sidebar({ isAdmin, isManager, userName, userEmail }) {
       </div>
 
       {/* 3. Footer Section */}
-      <div className="mt-auto border-t p-2 w-full">
+      <div className="mt-auto p-2 w-full">
         <DropdownMenu>
           <DropdownMenuTrigger render={
             <button className="w-full flex items-center gap-3 rounded-md p-2 hover:bg-muted/50 transition-colors text-left outline-none">
@@ -161,14 +161,15 @@ export function Sidebar({ isAdmin, isManager, userName, userEmail }) {
             <DropdownMenuGroup>
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setActiveView('settings')} className="cursor-pointer">
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
               </DropdownMenuItem>
-              <div className="flex items-center justify-between px-2 py-1 mt-1 rounded-sm hover:bg-muted transition-colors">
-                <span className="text-sm">Appearance</span>
-                <ThemeToggle />
-              </div>
+              <DropdownMenuItem className="cursor-pointer" onSelect={(e) => e.preventDefault()} asChild>
+                <div className="flex items-center w-full">
+                  <ThemeToggle asDropdownItem />
+                </div>
+              </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem disabled className="flex justify-between">
