@@ -35,7 +35,11 @@ export async function createUser(formData) {
       designationId = desig?.id;
     }
     
-    const activeLeaveTypes = await prisma.leaveType.findMany({ where: { isActive: true } });
+    const activeLeaveTypes = await prisma.leaveType.findMany({ 
+      where: { isActive: true },
+      include: { allocations: true }
+    });
+    
     const currentYear = new Date().getFullYear();
     
     await prisma.user.create({
@@ -46,11 +50,15 @@ export async function createUser(formData) {
         ...(departmentId && { departmentId }),
         ...(designationId && { designationId }),
         leaveBalances: {
-          create: activeLeaveTypes.map(lt => ({
-            leaveTypeId: lt.id,
-            totalDays: lt.defaultDays,
-            year: currentYear,
-          }))
+          create: activeLeaveTypes.map(lt => {
+            const override = lt.allocations?.find(a => a.designationId === designationId);
+            const finalDays = override ? override.allocatedDays : lt.defaultDays;
+            return {
+              leaveTypeId: lt.id,
+              totalDays: finalDays,
+              year: currentYear,
+            };
+          })
         }
       },
     });
