@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { getSession } from '@/lib/session';
 
 export async function getHierarchyNodes() {
   try {
@@ -18,8 +19,11 @@ export async function getHierarchyNodes() {
   }
 }
 
-export async function createHierarchyNode(departmentId, designationId) {
+export async function createHierarchyNode(departmentId, designationId, x = 50, y = 50) {
   try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { error: 'Unauthorized. Admin access required.' };
+
     const existingNode = await prisma.hierarchyNode.findUnique({
       where: {
         departmentId_designationId: {
@@ -37,6 +41,8 @@ export async function createHierarchyNode(departmentId, designationId) {
       data: {
         departmentId,
         designationId,
+        x,
+        y
       },
       include: {
         department: true,
@@ -54,6 +60,9 @@ export async function createHierarchyNode(departmentId, designationId) {
 
 export async function updateHierarchyConnection(nodeId, parentId) {
   try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { error: 'Unauthorized. Admin access required.' };
+
     // Prevent self-reference
     if (nodeId === parentId) {
       return { error: 'A node cannot report to itself.' };
@@ -76,6 +85,9 @@ export async function updateHierarchyConnection(nodeId, parentId) {
 
 export async function deleteHierarchyNode(nodeId) {
   try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { error: 'Unauthorized. Admin access required.' };
+
     // Check if it has children. If so, disconnect them or throw error.
     const node = await prisma.hierarchyNode.findUnique({
       where: { id: nodeId },
@@ -95,5 +107,22 @@ export async function deleteHierarchyNode(nodeId) {
   } catch (error) {
     console.error('Error deleting hierarchy node:', error);
     return { error: 'Failed to delete hierarchy node' };
+  }
+}
+
+export async function updateNodePosition(nodeId, x, y) {
+  try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { error: 'Unauthorized. Admin access required.' };
+
+    await prisma.hierarchyNode.update({
+      where: { id: nodeId },
+      data: { x, y }
+    });
+    // We don't revalidatePath here because it happens constantly on drag
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating node position:', error);
+    return { error: 'Failed to update position' };
   }
 }

@@ -11,6 +11,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -31,6 +41,7 @@ export function AddLeaveTypeDialog({ trigger }) {
   const [leaveTypes, setLeaveTypes] = useState([]);
   const [designations, setDesignations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   
   // Form View State
   const [showForm, setShowForm] = useState(false);
@@ -154,7 +165,11 @@ export function AddLeaveTypeDialog({ trigger }) {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = (id) => {
+    setDeleteConfirmId(id);
+  };
+
+  const executeDelete = async (id) => {
     const res = await deleteLeaveType(id);
     if (res.success) {
       toast.success("Leave type deleted");
@@ -162,19 +177,18 @@ export function AddLeaveTypeDialog({ trigger }) {
     } else {
       toast.error("Failed to delete.");
     }
+    setDeleteConfirmId(null);
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Add Leave Type
-          </Button>
-        )}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[700px] overflow-hidden flex flex-col max-h-[85vh]" showCloseButton={false}>
+      <DialogTrigger render={trigger || (
+        <Button className="flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          Add Leave Type
+        </Button>
+      )} />
+      <DialogContent className="sm:max-w-[700px] border-border/50 shadow-md bg-card dark:bg-zinc-900/90 backdrop-blur-sm overflow-hidden flex flex-col max-h-[85vh]" showCloseButton={false}>
         <DialogHeader className="flex flex-row items-center justify-between shrink-0">
           <div>
             <DialogTitle className="text-xl font-semibold tracking-tight">
@@ -291,7 +305,7 @@ export function AddLeaveTypeDialog({ trigger }) {
               </div>
             </form>
           ) : leaveTypes.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 px-4 text-center border rounded-md">
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
               <div className="bg-primary/10 p-3 rounded-full mb-4">
                 <Plus className="h-6 w-6 text-primary" />
               </div>
@@ -305,7 +319,7 @@ export function AddLeaveTypeDialog({ trigger }) {
               </Button>
             </div>
           ) : (
-            <div className="border rounded-md">
+            <div>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -342,6 +356,24 @@ export function AddLeaveTypeDialog({ trigger }) {
           )}
         </div>
       </DialogContent>
+
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <AlertDialogContent className="border-border/50 shadow-md bg-card dark:bg-zinc-900/90 backdrop-blur-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Leave Type</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this leave type? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => executeDelete(deleteConfirmId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </Dialog>
   );
 }

@@ -24,7 +24,7 @@ export default function RootLayout({ children }) {
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           {children}
         </ThemeProvider>
-        <Toaster />
+        <Toaster position="bottom-center" richColors />
       </body>
     </html>
   );

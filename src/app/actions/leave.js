@@ -335,3 +335,26 @@ export async function proposeNewDates(leaveId, fromDate, toDate) {
     return { error: 'Failed to propose new dates.' };
   }
 }
+
+export async function getMyLeaveBalances() {
+  try {
+    const session = await getSession();
+    if (!session?.userId) return { error: 'Not authenticated' };
+
+    const currentYear = new Date().getFullYear();
+    const balances = await prisma.leaveBalance.findMany({
+      where: {
+        userId: session.userId,
+        year: currentYear
+      },
+      include: {
+        leaveType: true
+      }
+    });
+
+    return { success: true, balances };
+  } catch (error) {
+    console.error('Error fetching balances:', error);
+    return { error: 'Failed to fetch balances.' };
+  }
+}

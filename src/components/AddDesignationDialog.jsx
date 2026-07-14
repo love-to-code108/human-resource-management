@@ -11,7 +11,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 import {
   Table,
   TableBody,
@@ -30,6 +41,7 @@ export function AddDesignationDialog({ trigger }) {
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   
   useEffect(() => {
     if (open) {
@@ -50,9 +62,12 @@ export function AddDesignationDialog({ trigger }) {
     if (!newName.trim()) return;
     const res = await addDesignation(newName);
     if (res.success) {
+      toast.success("Designation added successfully.");
       setDesignations([...designations, res.designation]);
       setNewName('');
       setIsAdding(false);
+    } else {
+      toast.error(res.error || "Failed to add designation");
     }
   };
 
@@ -60,29 +75,38 @@ export function AddDesignationDialog({ trigger }) {
     if (!editName.trim()) return;
     const res = await updateDesignation(id, editName);
     if (res.success) {
+      toast.success("Designation updated.");
       setDesignations(designations.map(d => d.id === id ? { ...d, name: res.designation.name } : d));
       setEditingId(null);
+    } else {
+      toast.error(res.error || "Failed to update designation");
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = (id) => {
+    setDeleteConfirmId(id);
+  };
+
+  const executeDelete = async (id) => {
     const res = await deleteDesignation(id);
     if (res.success) {
+      toast.success("Designation deleted successfully.");
       setDesignations(designations.filter(d => d.id !== id));
+    } else {
+      toast.error(res.error || "Failed to delete designation");
     }
+    setDeleteConfirmId(null);
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Add Designation
-          </Button>
-        )}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[550px]" showCloseButton={false}>
+      <DialogTrigger render={trigger || (
+        <Button className="flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          Add Designation
+        </Button>
+      )} />
+      <DialogContent className="sm:max-w-[550px] border-border/50 shadow-md bg-card dark:bg-zinc-900/90 backdrop-blur-sm" showCloseButton={false}>
         <DialogHeader className="flex flex-row items-center justify-between">
           <div>
             <DialogTitle className="text-xl font-semibold tracking-tight">Manage Designations</DialogTitle>
@@ -96,7 +120,7 @@ export function AddDesignationDialog({ trigger }) {
           </Button>
         </DialogHeader>
 
-        <div className="mt-4 border rounded-md max-h-[300px] overflow-auto">
+        <div className="mt-4 max-h-[300px] overflow-auto">
           {isLoading ? (
             <div className="flex justify-center items-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
@@ -205,6 +229,24 @@ export function AddDesignationDialog({ trigger }) {
           )}
         </div>
       </DialogContent>
+
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <AlertDialogContent className="border-border/50 shadow-md bg-card dark:bg-zinc-900/90 backdrop-blur-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Designation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this designation? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => executeDelete(deleteConfirmId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </Dialog>
   );
 }
