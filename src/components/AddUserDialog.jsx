@@ -31,14 +31,11 @@ import {
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending} className="w-full h-11 text-base font-medium transition-all active:scale-[0.98] group">
+    <Button type="submit" disabled={pending} className="w-full h-11 text-base">
       {pending ? (
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
       ) : (
-        <>
-          Save User
-          <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-        </>
+        "Save User"
       )}
     </Button>
   );
@@ -85,7 +82,7 @@ export function AddUserDialog({ trigger }) {
           Add User
         </Button>
       )} />
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px] border-border/50 shadow-md bg-card dark:bg-zinc-900/90 backdrop-blur-sm">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold tracking-tight">Add New User</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
@@ -93,21 +90,21 @@ export function AddUserDialog({ trigger }) {
           </DialogDescription>
         </DialogHeader>
         <form action={clientAction}>
-          <div className="grid gap-5 py-4">
+          <div className="grid gap-6 py-6">
             <div className="grid gap-2">
-              <Label htmlFor="name" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</Label>
+              <Label htmlFor="name" className="text-sm font-medium">Name</Label>
               <Input id="name" name="name" placeholder="John Doe" required />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email</Label>
+              <Label htmlFor="email" className="text-sm font-medium">Email</Label>
               <Input id="email" name="email" type="email" placeholder="john@university.edu" required />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Password</Label>
+              <Label htmlFor="password" className="text-sm font-medium">Password</Label>
               <Input id="password" name="password" type="text" defaultValue="UEM@123" required />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="departmentName" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Department</Label>
+              <Label htmlFor="departmentName" className="text-sm font-medium">Department</Label>
               <Select name="departmentName" required disabled={isLoading || departments.length === 0}>
                 <SelectTrigger>
                   <SelectValue placeholder={isLoading ? "Loading..." : "Select a department"} />
@@ -120,7 +117,7 @@ export function AddUserDialog({ trigger }) {
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="designationName" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Designation</Label>
+              <Label htmlFor="designationName" className="text-sm font-medium">Designation</Label>
               <Select name="designationName" required disabled={isLoading || designations.length === 0}>
                 <SelectTrigger>
                   <SelectValue placeholder={isLoading ? "Loading..." : "Select a designation"} />

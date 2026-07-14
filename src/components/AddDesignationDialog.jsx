@@ -106,7 +106,7 @@ export function AddDesignationDialog({ trigger }) {
           Add Designation
         </Button>
       )} />
-      <DialogContent className="sm:max-w-[550px]" showCloseButton={false}>
+      <DialogContent className="sm:max-w-[550px] border-border/50 shadow-md bg-card dark:bg-zinc-900/90 backdrop-blur-sm" showCloseButton={false}>
         <DialogHeader className="flex flex-row items-center justify-between">
           <div>
             <DialogTitle className="text-xl font-semibold tracking-tight">Manage Designations</DialogTitle>
@@ -120,7 +120,7 @@ export function AddDesignationDialog({ trigger }) {
           </Button>
         </DialogHeader>
 
-        <div className="mt-4 border rounded-md max-h-[300px] overflow-auto">
+        <div className="mt-4 max-h-[300px] overflow-auto">
           {isLoading ? (
             <div className="flex justify-center items-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
@@ -231,7 +231,7 @@ export function AddDesignationDialog({ trigger }) {
       </DialogContent>
 
       <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="border-border/50 shadow-md bg-card dark:bg-zinc-900/90 backdrop-blur-sm">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Designation</AlertDialogTitle>
             <AlertDialogDescription>

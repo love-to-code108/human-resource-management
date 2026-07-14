@@ -188,7 +188,7 @@ export function AddLeaveTypeDialog({ trigger }) {
           Add Leave Type
         </Button>
       )} />
-      <DialogContent className="sm:max-w-[700px] overflow-hidden flex flex-col max-h-[85vh]" showCloseButton={false}>
+      <DialogContent className="sm:max-w-[700px] border-border/50 shadow-md bg-card dark:bg-zinc-900/90 backdrop-blur-sm overflow-hidden flex flex-col max-h-[85vh]" showCloseButton={false}>
         <DialogHeader className="flex flex-row items-center justify-between shrink-0">
           <div>
             <DialogTitle className="text-xl font-semibold tracking-tight">
@@ -305,7 +305,7 @@ export function AddLeaveTypeDialog({ trigger }) {
               </div>
             </form>
           ) : leaveTypes.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 px-4 text-center border rounded-md">
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
               <div className="bg-primary/10 p-3 rounded-full mb-4">
                 <Plus className="h-6 w-6 text-primary" />
               </div>
@@ -319,7 +319,7 @@ export function AddLeaveTypeDialog({ trigger }) {
               </Button>
             </div>
           ) : (
-            <div className="border rounded-md">
+            <div>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -358,7 +358,7 @@ export function AddLeaveTypeDialog({ trigger }) {
       </DialogContent>
 
       <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="border-border/50 shadow-md bg-card dark:bg-zinc-900/90 backdrop-blur-sm">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Leave Type</AlertDialogTitle>
             <AlertDialogDescription>
