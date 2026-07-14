@@ -15,7 +15,7 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
   DropdownMenuGroup
 } from "@/components/ui/dropdown-menu";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+
 import { AddUserDialog } from '@/components/AddUserDialog';
 import { AddDesignationDialog } from '@/components/AddDesignationDialog';
 import { AddDepartmentDialog } from '@/components/AddDepartmentDialog';
@@ -70,25 +70,15 @@ export function Sidebar({ isAdmin, isManager, userName, userEmail, userAvatar })
     <div className="flex h-full w-64 flex-col border-r bg-background">
       {/* 1. Header Section */}
       <div className="shrink-0 border-b p-4">
-        <HoverCard>
-          <HoverCardTrigger render={
-            <div className="flex w-full items-center gap-3 outline-none cursor-default">
-              <div className="h-8 w-8 shrink-0 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-sm">
-                <GalleryVerticalEnd className="h-5 w-5" />
-              </div>
-              <div className="flex flex-col items-start flex-1 overflow-hidden">
-                <span className="text-sm font-semibold truncate text-foreground leading-tight">LeaveFlow</span>
-                <span className="text-[11px] text-muted-foreground truncate mt-0.5">Enterprise</span>
-              </div>
-            </div>
-          } />
-          <HoverCardContent align="start" className="w-64" side="bottom" sideOffset={8}>
-            <div className="flex flex-col space-y-1">
-              <h4 className="text-sm font-semibold">LeaveFlow Enterprise</h4>
-              <p className="text-xs text-muted-foreground">Internal Human Resource Management portal.</p>
-            </div>
-          </HoverCardContent>
-        </HoverCard>
+        <div className="flex w-full items-center gap-3 outline-none cursor-default">
+          <div className="h-8 w-8 shrink-0 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-sm">
+            <GalleryVerticalEnd className="h-5 w-5" />
+          </div>
+          <div className="flex flex-col items-start flex-1 overflow-hidden">
+            <span className="text-sm font-semibold truncate text-foreground leading-tight">LeaveFlow</span>
+            <span className="text-[11px] text-muted-foreground truncate mt-0.5">Enterprise</span>
+          </div>
+        </div>
       </div>
 
       {/* 2. Body Section */}
