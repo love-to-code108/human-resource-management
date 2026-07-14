@@ -104,3 +104,87 @@ export async function submitLeaveApplication(data) {
     return { error: 'An unexpected error occurred while submitting.' };
   }
 }
+
+export async function getMyLeaves() {
+  try {
+    const session = await getSession();
+    if (!session?.userId) return { error: 'Not authenticated' };
+
+    const leaves = await prisma.leaveRequest.findMany({
+      where: { applicantId: session.userId },
+      include: {
+        leaveType: true,
+        pendingAtNode: {
+          include: {
+            designation: true,
+            department: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    return { success: true, leaves };
+  } catch (error) {
+    console.error('Error fetching leaves:', error);
+    return { error: 'Failed to fetch your leave applications.' };
+  }
+}
+
+export async function acceptNegotiation(leaveId) {
+  try {
+    const session = await getSession();
+    if (!session?.userId) return { error: 'Not authenticated' };
+
+    const leave = await prisma.leaveRequest.findUnique({
+      where: { id: leaveId, applicantId: session.userId }
+    });
+
+    if (!leave || leave.status !== 'NEGOTIATING') {
+      return { error: 'Invalid leave request or not in negotiation status.' };
+    }
+
+    // When the applicant accepts, we update the dates to the manager's suggested dates, 
+    // and bump the status back to PENDING so the manager can do the final approval (or we can just auto approve it, but standard is PENDING).
+    // Let's change status to PENDING so the manager can approve the new dates.
+    await prisma.leaveRequest.update({
+      where: { id: leaveId },
+      data: {
+        fromDate: leave.managerSuggestedFromDate,
+        toDate: leave.managerSuggestedToDate,
+        managerSuggestedFromDate: null,
+        managerSuggestedToDate: null,
+        status: 'PENDING'
+      }
+    });
+
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error accepting negotiation:', error);
+    return { error: 'Failed to accept negotiation.' };
+  }
+}
+
+export async function withdrawLeave(leaveId) {
+  try {
+    const session = await getSession();
+    if (!session?.userId) return { error: 'Not authenticated' };
+
+    const leave = await prisma.leaveRequest.findUnique({
+      where: { id: leaveId, applicantId: session.userId }
+    });
+
+    if (!leave) return { error: 'Leave request not found.' };
+
+    await prisma.leaveRequest.delete({
+      where: { id: leaveId }
+    });
+
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error withdrawing leave:', error);
+    return { error: 'Failed to withdraw leave.' };
+  }
+}
