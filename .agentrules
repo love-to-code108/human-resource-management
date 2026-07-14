@@ -22,3 +22,9 @@
 - **Execution:** Write concise, production-ready JavaScript code (.js / .jsx). Do NOT use TypeScript.
 - **Comments:** Explain complex logic only; do not add conversational filler, apologies, or redundant comments.
 - **Tooling:** Always check available MCP servers (`next-devtools`, `shadcn`, `local-postgres-db`) before writing complex UI components or database queries to verify the current workspace state.
+
+## 4. UI/UX Guidelines (Academic Minimalist / Pure Shadcn)
+- **Target Audience:** University professors. The UI must remain strictly professional, quiet, and highly functional.
+- **Layouts & Containers:** NEVER use heavy cards (`bg-background border rounded-shadow`). Use pure, unboxed layouts with generous whitespace and simple `border-b` horizontal dividers.
+- **Data Presentation:** Avoid "gamified" elements like progress bars filling up for stats. Present data using clean, dashboard-style text grids (large raw numbers with short, colored subtext).
+- **Typography & Hierarchy:** Rely heavily on typography, spacing, and standard stacked layouts for hierarchy, rather than boxes and drop-shadows. Maintain left-aligned, document-like reading flows where appropriate.
