@@ -21,7 +21,7 @@ export async function getSubordinates() {
         },
         orderBy: { name: 'asc' }
       });
-      return { success: true, users };
+      return { success: true, users, isAdmin: true };
     }
 
     // If not Admin, find the user's role
@@ -39,7 +39,7 @@ export async function getSubordinates() {
       }
     });
 
-    if (!managerNode) return { success: true, users: [] };
+    if (!managerNode) return { success: true, users: [], isAdmin: false };
 
     // Fetch all nodes to do an in-memory graph traversal (much faster than repeated DB queries)
     const allNodes = await prisma.hierarchyNode.findMany();
@@ -57,7 +57,7 @@ export async function getSubordinates() {
     }
 
     if (descendantNodes.length === 0) {
-      return { success: true, users: [] };
+      return { success: true, users: [], isAdmin: false };
     }
 
     // Map descendants to Prisma OR conditions
@@ -81,9 +81,30 @@ export async function getSubordinates() {
       orderBy: { name: 'asc' }
     });
 
-    return { success: true, users: subordinateUsers };
+    return { success: true, users: subordinateUsers, isAdmin: false };
   } catch (error) {
     console.error('Error fetching subordinates:', error);
     return { error: 'Failed to fetch subordinates.' };
+  }
+}
+
+export async function deleteUser(userId) {
+  try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { error: 'Unauthorized. Admin access required.' };
+
+    const userToDelete = await prisma.user.findUnique({ where: { id: userId } });
+    if (!userToDelete) return { error: 'User not found.' };
+    
+    if (userToDelete.isAdmin) {
+      return { error: 'Cannot delete an Admin user.' };
+    }
+
+    await prisma.user.delete({ where: { id: userId } });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    return { error: 'Failed to delete user.' };
   }
 }

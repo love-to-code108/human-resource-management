@@ -129,7 +129,7 @@ model LeaveRequest {
   managerSuggestedToDate   DateTime?
   
   leaveType       LeaveType     @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
-  applicant       User          @relation("Applicant", fields: [applicantId], references: [id])
+  applicant       User          @relation("Applicant", fields: [applicantId], references: [id], onDelete: Cascade)
   pendingAtNode   HierarchyNode? @relation("NodeApprover", fields: [pendingAtNodeId], references: [id])
 
   createdAt       DateTime      @default(now())

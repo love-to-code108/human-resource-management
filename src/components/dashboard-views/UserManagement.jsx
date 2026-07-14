@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getSubordinates } from '@/app/actions/userManagement';
-import { Loader2, Users, Search, ChevronRight, Briefcase, Building2, Calendar } from 'lucide-react';
+import { getSubordinates, deleteUser } from '@/app/actions/userManagement';
+import { Loader2, Users, Search, ChevronRight, Briefcase, Building2, Calendar, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -17,10 +17,19 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 
@@ -32,6 +41,8 @@ export function UserManagement() {
   
   const [selectedUser, setSelectedUser] = useState(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
 
   useEffect(() => {
     loadUsers();
@@ -57,10 +68,33 @@ export function UserManagement() {
     if (res.success) {
       setUsers(res.users || []);
       setFilteredUsers(res.users || []);
+      setIsAdmin(res.isAdmin || false);
     } else {
       toast.error(res.error || "Failed to load users");
     }
     setIsLoading(false);
+  };
+
+  const initiateDelete = (user) => {
+    if (user.isAdmin) {
+      toast.error("Cannot delete an Admin account.");
+      return;
+    }
+    setUserToDelete(user);
+  };
+
+  const confirmDelete = async () => {
+    if (!userToDelete) return;
+    setIsLoading(true);
+    const res = await deleteUser(userToDelete.id);
+    if (res.success) {
+      toast.success(`${userToDelete.name} has been deleted.`);
+      setUserToDelete(null);
+      loadUsers();
+    } else {
+      toast.error(res.error || "Failed to delete user.");
+      setIsLoading(false);
+    }
   };
 
   const openDetails = (user) => {
@@ -138,10 +172,17 @@ export function UserManagement() {
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => openDetails(user)} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">
-                        View Details
-                        <ChevronRight className="w-4 h-4 ml-1" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        {isAdmin && !user.isAdmin && (
+                          <Button variant="ghost" size="icon" onClick={() => initiateDelete(user)} className="text-destructive hover:text-destructive hover:bg-destructive/10" title="Delete User">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={() => openDetails(user)} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                          View Details
+                          <ChevronRight className="w-4 h-4 ml-1" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -224,6 +265,25 @@ export function UserManagement() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Alert Dialog */}
+        <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete <strong>{userToDelete?.name}</strong>'s account, 
+                along with all of their leave balances and historical leave requests.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Yes, delete user
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
       </div>
     </div>
