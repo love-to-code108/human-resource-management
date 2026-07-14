@@ -18,7 +18,7 @@ import { AddLeaveTypeDialog } from '@/components/AddLeaveTypeDialog';
 import { logoutAction } from '@/app/actions/auth';
 import { useRouter } from 'next/navigation';
 
-export function Sidebar() {
+export function Sidebar({ isAdmin, isManager, userName, userEmail }) {
   const activeView = useDashboardStore((state) => state.activeView);
   const setActiveView = useDashboardStore((state) => state.setActiveView);
   const router = useRouter();
@@ -100,57 +100,61 @@ export function Sidebar() {
         </div>
 
         {/* Section 2: Administration (Actions) */}
-        <div className="px-3 lg:px-4 mb-6">
-          <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Administration
-          </h3>
-          <div className="space-y-1">
-            <AddUserDialog 
-              trigger={
-                <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all text-left">
-                  <Users className="h-4 w-4" />
-                  Add New User
-                </button>
-              }
-            />
-            <AddDesignationDialog 
-              trigger={
-                <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all text-left">
-                  <Briefcase className="h-4 w-4" />
-                  Add Designation
-                </button>
-              }
-            />
-            <AddDepartmentDialog 
-              trigger={
-                <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all text-left">
-                  <Building2 className="h-4 w-4" />
-                  Add Department
-                </button>
-              }
-            />
-            <AddLeaveTypeDialog 
-              trigger={
-                <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all text-left">
-                  <CalendarClock className="h-4 w-4" />
-                  Add Leave Type
-                </button>
-              }
-            />
-            <NavItem viewId="hierarchy" icon={Map} label="Hierarchy" />
+        {isAdmin && (
+          <div className="px-3 lg:px-4 mb-6">
+            <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Administration
+            </h3>
+            <div className="space-y-1">
+              <AddUserDialog 
+                trigger={
+                  <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all text-left">
+                    <Users className="h-4 w-4" />
+                    Add New User
+                  </button>
+                }
+              />
+              <AddDesignationDialog 
+                trigger={
+                  <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all text-left">
+                    <Briefcase className="h-4 w-4" />
+                    Add Designation
+                  </button>
+                }
+              />
+              <AddDepartmentDialog 
+                trigger={
+                  <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all text-left">
+                    <Building2 className="h-4 w-4" />
+                    Add Department
+                  </button>
+                }
+              />
+              <AddLeaveTypeDialog 
+                trigger={
+                  <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all text-left">
+                    <CalendarClock className="h-4 w-4" />
+                    Add Leave Type
+                  </button>
+                }
+              />
+              <NavItem viewId="hierarchy" icon={Map} label="Hierarchy" />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Section 3: Approvals */}
-        <div className="px-3 lg:px-4 mb-6">
-          <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Approvals
-          </h3>
-          <div className="space-y-1">
-            <NavItem viewId="leave-management" icon={CalendarClock} label="Leave Management" />
-            <NavItem viewId="user-management" icon={Users} label="User Management" />
+        {(isAdmin || isManager) && (
+          <div className="px-3 lg:px-4 mb-6">
+            <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Approvals
+            </h3>
+            <div className="space-y-1">
+              <NavItem viewId="leave-management" icon={CalendarClock} label="Leave Management" />
+              <NavItem viewId="user-management" icon={Users} label="User Management" />
+            </div>
           </div>
-        </div>
+        )}
         
       </div>
 
@@ -162,12 +166,13 @@ export function Sidebar() {
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-3 w-full p-2 rounded-md hover:bg-muted/50 transition-colors text-left">
               <Avatar className="h-9 w-9 border-2 border-primary/20">
-                <AvatarImage src="" alt="Admin" />
-                <AvatarFallback className="bg-indigo-500 text-white font-semibold">AD</AvatarFallback>
+                <AvatarFallback className="bg-indigo-500 text-white font-semibold">
+                  {userName.substring(0, 2).toUpperCase()}
+                </AvatarFallback>
               </Avatar>
               <div className="flex flex-col overflow-hidden">
-                <span className="text-sm font-medium truncate">Admin User</span>
-                <span className="text-xs text-muted-foreground truncate">admin@university.edu</span>
+                <span className="text-sm font-medium truncate">{userName}</span>
+                <span className="text-xs text-muted-foreground truncate">{userEmail}</span>
               </div>
             </button>
           </DropdownMenuTrigger>

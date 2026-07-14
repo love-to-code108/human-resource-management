@@ -23,9 +23,9 @@ export async function decrypt(token) {
   }
 }
 
-export async function createSession(userId, designationId, departmentId, isAdmin = false) {
+export async function createSession(userId, designationId, departmentId, isAdmin = false, isManager = false) {
   const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  const session = await encrypt({ userId, designationId, departmentId, isAdmin, expires });
+  const session = await encrypt({ userId, designationId, departmentId, isAdmin, isManager, expires });
 
   const cookieStore = await cookies();
   cookieStore.set('elms_session', session, {
