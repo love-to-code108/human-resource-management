@@ -20,55 +20,60 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { getDepartments, addDepartment, updateDepartment, deleteDepartment } from '@/app/actions/department';
+import { getLeaveTypes, addLeaveType, updateLeaveType, deleteLeaveType } from '@/app/actions/leaveType';
 
-export function AddDepartmentDialog({ trigger }) {
+export function AddLeaveTypeDialog({ trigger }) {
   const [open, setOpen] = useState(false);
-  const [departments, setDepartments] = useState([]);
+  const [leaveTypes, setLeaveTypes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
+  
   const [newName, setNewName] = useState('');
+  const [newDays, setNewDays] = useState('');
+  
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
+  const [editDays, setEditDays] = useState('');
 
   useEffect(() => {
     if (open) {
-      loadDepartments();
+      loadLeaveTypes();
     }
   }, [open]);
 
-  const loadDepartments = async () => {
+  const loadLeaveTypes = async () => {
     setIsLoading(true);
-    const res = await getDepartments();
+    const res = await getLeaveTypes();
     if (res.success) {
-      setDepartments(res.departments);
+      setLeaveTypes(res.leaveTypes);
     }
     setIsLoading(false);
   };
 
   const handleAdd = async () => {
-    if (!newName.trim()) return;
-    const res = await addDepartment(newName);
+    if (!newName.trim() || !newDays) return;
+    const res = await addLeaveType(newName, newDays);
     if (res.success) {
-      setDepartments([...departments, res.department]);
+      setLeaveTypes([...leaveTypes, res.leaveType]);
       setNewName('');
+      setNewDays('');
       setIsAdding(false);
     }
   };
 
   const handleSaveEdit = async (id) => {
-    if (!editName.trim()) return;
-    const res = await updateDepartment(id, editName);
+    if (!editName.trim() || !editDays) return;
+    const res = await updateLeaveType(id, editName, editDays);
     if (res.success) {
-      setDepartments(departments.map(d => d.id === id ? { ...d, name: res.department.name } : d));
+      setLeaveTypes(leaveTypes.map(d => d.id === id ? { ...d, name: res.leaveType.name, defaultDays: res.leaveType.defaultDays } : d));
       setEditingId(null);
     }
   };
 
   const handleDelete = async (id) => {
-    const res = await deleteDepartment(id);
+    const res = await deleteLeaveType(id);
     if (res.success) {
-      setDepartments(departments.filter(d => d.id !== id));
+      setLeaveTypes(leaveTypes.filter(d => d.id !== id));
     }
   };
 
@@ -78,16 +83,16 @@ export function AddDepartmentDialog({ trigger }) {
         {trigger || (
           <Button className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
-            Add Department
+            Add Leave Type
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[550px]" showCloseButton={false}>
+      <DialogContent className="sm:max-w-[650px]" showCloseButton={false}>
         <DialogHeader className="flex flex-row items-center justify-between">
           <div>
-            <DialogTitle className="text-xl font-semibold tracking-tight">Manage Departments</DialogTitle>
+            <DialogTitle className="text-xl font-semibold tracking-tight">Manage Leave Types</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground mt-1">
-              Add, edit, or remove departments in the system.
+              Add, edit, or remove leave types and their default days.
             </DialogDescription>
           </div>
           <Button size="sm" onClick={() => setIsAdding(true)} disabled={isAdding || isLoading} className="mt-0">
@@ -101,18 +106,18 @@ export function AddDepartmentDialog({ trigger }) {
             <div className="flex justify-center items-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
             </div>
-          ) : departments.length === 0 && !isAdding ? (
+          ) : leaveTypes.length === 0 && !isAdding ? (
             <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
               <div className="bg-primary/10 p-3 rounded-full mb-4">
                 <Plus className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="font-semibold text-lg mb-1">No departments found</h3>
+              <h3 className="font-semibold text-lg mb-1">No leave types found</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Get started by adding the first department to the system.
+                Get started by adding the first leave type to the system.
               </p>
               <Button onClick={() => setIsAdding(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                Add New Department
+                Add New Leave Type
               </Button>
             </div>
           ) : (
@@ -120,7 +125,8 @@ export function AddDepartmentDialog({ trigger }) {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-16">S.No</TableHead>
-                  <TableHead>Department Name</TableHead>
+                  <TableHead>Leave Type</TableHead>
+                  <TableHead className="w-24">Default Days</TableHead>
                   <TableHead className="w-16">Edit</TableHead>
                   <TableHead className="w-16">Delete</TableHead>
                 </TableRow>
@@ -133,9 +139,22 @@ export function AddDepartmentDialog({ trigger }) {
                       <Input 
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
-                        placeholder="e.g. Finance" 
+                        placeholder="e.g. Sick Leave" 
                         className="h-8"
                         autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleAdd();
+                          if (e.key === 'Escape') setIsAdding(false);
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input 
+                        value={newDays}
+                        onChange={(e) => setNewDays(e.target.value)}
+                        placeholder="e.g. 10" 
+                        type="number"
+                        className="h-8"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') handleAdd();
                           if (e.key === 'Escape') setIsAdding(false);
@@ -154,46 +173,63 @@ export function AddDepartmentDialog({ trigger }) {
                     </TableCell>
                   </TableRow>
                 )}
-                {departments.map((department, index) => (
-                  <TableRow key={department.id}>
+                {leaveTypes.map((leaveType, index) => (
+                  <TableRow key={leaveType.id}>
                     <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
                     <TableCell>
-                      {editingId === department.id ? (
+                      {editingId === leaveType.id ? (
                         <Input 
                           value={editName}
                           onChange={(e) => setEditName(e.target.value)}
                           className="h-8"
                           autoFocus
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveEdit(department.id);
+                            if (e.key === 'Enter') handleSaveEdit(leaveType.id);
                             if (e.key === 'Escape') setEditingId(null);
                           }}
                         />
                       ) : (
-                        department.name
+                        leaveType.name
                       )}
                     </TableCell>
                     <TableCell>
-                      {editingId === department.id ? (
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-500" onClick={() => handleSaveEdit(department.id)}>
+                      {editingId === leaveType.id ? (
+                        <Input 
+                          value={editDays}
+                          onChange={(e) => setEditDays(e.target.value)}
+                          type="number"
+                          className="h-8"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveEdit(leaveType.id);
+                            if (e.key === 'Escape') setEditingId(null);
+                          }}
+                        />
+                      ) : (
+                        leaveType.defaultDays
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {editingId === leaveType.id ? (
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-500" onClick={() => handleSaveEdit(leaveType.id)}>
                           <Check className="h-4 w-4" />
                         </Button>
                       ) : (
                         <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => {
-                          setEditingId(department.id);
-                          setEditName(department.name);
+                          setEditingId(leaveType.id);
+                          setEditName(leaveType.name);
+                          setEditDays(leaveType.defaultDays.toString());
                         }}>
                           <Edit2 className="h-4 w-4" />
                         </Button>
                       )}
                     </TableCell>
                     <TableCell>
-                      {editingId === department.id ? (
+                      {editingId === leaveType.id ? (
                         <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => setEditingId(null)}>
                           <X className="h-4 w-4" />
                         </Button>
                       ) : (
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDelete(department.id)}>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDelete(leaveType.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       )}

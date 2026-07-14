@@ -14,6 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { AddUserDialog } from '@/components/AddUserDialog';
 import { AddDesignationDialog } from '@/components/AddDesignationDialog';
 import { AddDepartmentDialog } from '@/components/AddDepartmentDialog';
+import { AddLeaveTypeDialog } from '@/components/AddLeaveTypeDialog';
 
 export function Sidebar() {
   const activeView = useDashboardStore((state) => state.activeView);
@@ -117,6 +118,14 @@ export function Sidebar() {
                 <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all text-left">
                   <Building2 className="h-4 w-4" />
                   Add Department
+                </button>
+              }
+            />
+            <AddLeaveTypeDialog 
+              trigger={
+                <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all text-left">
+                  <CalendarClock className="h-4 w-4" />
+                  Add Leave Type
                 </button>
               }
             />
