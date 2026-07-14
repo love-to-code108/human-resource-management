@@ -16,7 +16,7 @@ export function NewLeaveApplication() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [selectedLeaveTypeId, setSelectedLeaveTypeId] = useState('');
+  const [selectedLeaveTypeName, setSelectedLeaveTypeName] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [reason, setReason] = useState('');
@@ -37,14 +37,20 @@ export function NewLeaveApplication() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedLeaveTypeId || !fromDate || !toDate || !reason) {
+    if (!selectedLeaveTypeName || !fromDate || !toDate || !reason) {
       toast.error("Please fill in all fields and provide a reason.");
+      return;
+    }
+
+    const typeId = leaveTypes.find(t => t.name === selectedLeaveTypeName)?.id;
+    if (!typeId) {
+      toast.error("Invalid leave type selected.");
       return;
     }
 
     setIsSubmitting(true);
     const res = await submitLeaveApplication({
-      leaveTypeId: selectedLeaveTypeId,
+      leaveTypeId: typeId,
       fromDate,
       toDate,
       reason,
@@ -57,7 +63,7 @@ export function NewLeaveApplication() {
     } else {
       toast.success("Leave application submitted successfully!");
       // Reset form
-      setSelectedLeaveTypeId('');
+      setSelectedLeaveTypeName('');
       setFromDate('');
       setToDate('');
       setReason('');
@@ -85,13 +91,13 @@ export function NewLeaveApplication() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="leaveType">Leave Type</Label>
-                <Select value={selectedLeaveTypeId} onValueChange={setSelectedLeaveTypeId} required>
+                <Select value={selectedLeaveTypeName} onValueChange={setSelectedLeaveTypeName} required>
                   <SelectTrigger id="leaveType">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
                     {leaveTypes.map((type) => (
-                      <SelectItem key={type.id} value={type.id} label={type.name}>
+                      <SelectItem key={type.id} value={type.name} label={type.name}>
                         {type.name} ({type.defaultDays} days/yr)
                       </SelectItem>
                     ))}
