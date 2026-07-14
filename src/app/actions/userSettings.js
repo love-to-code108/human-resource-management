@@ -120,3 +120,20 @@ export async function updateUserAvatar(base64Image) {
     return { error: 'Failed to update avatar' };
   }
 }
+
+export async function removeUserAvatar() {
+  try {
+    const payload = await getSession();
+    if (!payload) return { error: 'Not authenticated' };
+
+    await prisma.user.update({
+      where: { id: payload.userId },
+      data: { avatar: null }
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error removing avatar:', error);
+    return { error: 'Failed to remove avatar' };
+  }
+}

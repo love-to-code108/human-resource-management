@@ -152,7 +152,7 @@ export function LeaveManagement() {
               <Card key={leave.id} className="overflow-hidden flex flex-col transition-all hover:shadow-md">
                 <CardHeader className="flex flex-row items-start gap-4 bg-muted/20 pb-4 border-b">
                   <Avatar className="h-12 w-12 border">
-                    <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                    <AvatarFallback className="bg-primary text-primary-foreground font-bold">
                       {leave.applicant.name.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getUserSettings, updateUserName, updateUserPassword, updateUserAvatar } from '@/app/actions/userSettings';
-import { Loader2, User, Building, Settings as SettingsIcon, Briefcase, Camera, Check, Lock, Upload } from 'lucide-react';
+import { getUserSettings, updateUserName, updateUserPassword, updateUserAvatar, removeUserAvatar } from '@/app/actions/userSettings';
+import { Loader2, User, Building, Settings as SettingsIcon, Briefcase, Camera, Check, Lock, Upload, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,6 +31,7 @@ export function UserSettings() {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [isCropping, setIsCropping] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isRemovingAvatar, setIsRemovingAvatar] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -132,6 +133,28 @@ export function UserSettings() {
     }
   };
 
+  const handleRemoveAvatar = async () => {
+    try {
+      setIsRemovingAvatar(true);
+      const res = await removeUserAvatar();
+      if (res.success) {
+        toast.success('Profile picture removed');
+        setData({
+          ...data,
+          user: { ...data.user, avatar: null }
+        });
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to remove profile picture');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('An error occurred while removing the image');
+    } finally {
+      setIsRemovingAvatar(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex-1 flex justify-center items-center h-full">
@@ -191,9 +214,23 @@ export function UserSettings() {
                   <div>
                     <h4 className="font-medium">Profile Picture</h4>
                     <p className="text-sm text-muted-foreground mb-3">Upload a square image, ideally 200x200px.</p>
-                    <Label htmlFor="avatar-upload" className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-3 cursor-pointer">
-                      Change Avatar
-                    </Label>
+                    <div className="flex items-center gap-3">
+                      <Label htmlFor="avatar-upload" className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-3 cursor-pointer">
+                        Change Avatar
+                      </Label>
+                      {data.user.avatar && (
+                        <Button 
+                          variant="destructive" 
+                          size="sm" 
+                          className="h-8" 
+                          onClick={handleRemoveAvatar}
+                          disabled={isRemovingAvatar}
+                        >
+                          {isRemovingAvatar ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                          Remove
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
 

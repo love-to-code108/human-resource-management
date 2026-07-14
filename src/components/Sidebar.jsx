@@ -147,7 +147,7 @@ export function Sidebar({ isAdmin, isManager, userName, userEmail, userAvatar })
             <button className="w-full flex items-center gap-3 rounded-md p-2 hover:bg-muted/50 transition-colors text-left outline-none">
               <Avatar className="h-9 w-9 shrink-0 rounded-full">
                 {userAvatar && <AvatarImage src={userAvatar} />}
-                <AvatarFallback className="bg-purple-600 text-white text-xs font-bold rounded-full">
+                <AvatarFallback className="bg-primary text-primary-foreground text-sm font-bold rounded-full">
                   {userName.substring(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>

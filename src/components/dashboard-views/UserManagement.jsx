@@ -149,7 +149,7 @@ export function UserManagement() {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-9 w-9 border">
-                          <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
+                          <AvatarFallback className="bg-primary text-primary-foreground font-bold text-sm">
                             {user.name.substring(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
@@ -199,7 +199,7 @@ export function UserManagement() {
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-3">
                     <Avatar className="h-10 w-10 border">
-                      <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                      <AvatarFallback className="bg-primary text-primary-foreground font-bold">
                         {selectedUser.name.substring(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
