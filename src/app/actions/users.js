@@ -1,10 +1,15 @@
 'use server'
 
 import { prisma } from '@/lib/prisma';
-import { hash } from 'bcryptjs';
 import { revalidatePath } from 'next/cache';
+import { getSession } from '@/lib/session';
 
 export async function createUser(formData) {
+  const session = await getSession();
+  if (!session?.isAdmin) {
+    return { error: 'Unauthorized. Only admins can create users.' };
+  }
+
   const name = formData.get('name');
   const email = formData.get('email');
   const departmentId = formData.get('departmentId');
@@ -15,13 +20,13 @@ export async function createUser(formData) {
   }
 
   try {
-    const passwordHash = await hash('Welcome123!', 10);
+    const password = 'Welcome123!';
     
     await prisma.user.create({
       data: {
         name,
         email,
-        passwordHash,
+        password,
         ...(departmentId && !departmentId.startsWith('dummy') && { departmentId }),
         ...(designationId && !designationId.startsWith('dummy') && { designationId }),
       },

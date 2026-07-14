@@ -83,6 +83,10 @@ export function AddUserDialog({ trigger }) {
               <Input id="email" name="email" type="email" placeholder="john@university.edu" required />
             </div>
             <div className="grid gap-2">
+              <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Password</Label>
+              <Input id="password" name="password" type="text" defaultValue="UEM@123" required />
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor="departmentId" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Department</Label>
               <Select name="departmentId" required>
                 <SelectTrigger>

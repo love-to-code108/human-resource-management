@@ -1,7 +1,6 @@
 'use server'
 
 import { redirect } from 'next/navigation';
-import { compare } from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { createSession } from '@/lib/session';
 
@@ -21,13 +20,11 @@ export async function loginAction(prevState, formData) {
     return { message: 'Invalid email or password' };
   }
 
-  const isValidPassword = await compare(password, user.passwordHash);
-
-  if (!isValidPassword) {
+  if (password !== user.password) {
     return { message: 'Invalid email or password' };
   }
 
-  await createSession(user.id, user.designationId, user.departmentId);
+  await createSession(user.id, user.designationId, user.departmentId, user.isAdmin);
 
   redirect('/dashboard');
 }
