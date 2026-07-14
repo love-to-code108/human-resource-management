@@ -12,23 +12,36 @@ export async function createUser(formData) {
 
   const name = formData.get('name');
   const email = formData.get('email');
-  const departmentId = formData.get('departmentId');
-  const designationId = formData.get('designationId');
+  const departmentName = formData.get('departmentName');
+  const designationName = formData.get('designationName');
 
   if (!name || !email) {
     return { error: 'Name and email are required.' };
   }
 
   try {
-    const password = 'Welcome123!';
+    const password = formData.get('password') || 'UEM@123';
+    
+    // Resolve IDs from the submitted names
+    let departmentId = null;
+    if (departmentName) {
+      const dept = await prisma.department.findUnique({ where: { name: departmentName } });
+      departmentId = dept?.id;
+    }
+
+    let designationId = null;
+    if (designationName) {
+      const desig = await prisma.designation.findUnique({ where: { name: designationName } });
+      designationId = desig?.id;
+    }
     
     await prisma.user.create({
       data: {
         name,
         email,
         password,
-        ...(departmentId && !departmentId.startsWith('dummy') && { departmentId }),
-        ...(designationId && !designationId.startsWith('dummy') && { designationId }),
+        ...(departmentId && { departmentId }),
+        ...(designationId && { designationId }),
       },
     });
 

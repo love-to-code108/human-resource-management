@@ -10,15 +10,23 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuGroup } from "@/components/ui/dropdown-menu";
 import { AddUserDialog } from '@/components/AddUserDialog';
 import { AddDesignationDialog } from '@/components/AddDesignationDialog';
 import { AddDepartmentDialog } from '@/components/AddDepartmentDialog';
 import { AddLeaveTypeDialog } from '@/components/AddLeaveTypeDialog';
+import { logoutAction } from '@/app/actions/auth';
+import { useRouter } from 'next/navigation';
 
 export function Sidebar() {
   const activeView = useDashboardStore((state) => state.activeView);
   const setActiveView = useDashboardStore((state) => state.setActiveView);
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await logoutAction();
+    router.push('/login');
+  };
 
   const NavItem = ({ viewId, icon: Icon, label }) => {
     const isActive = activeView === viewId;
@@ -164,18 +172,20 @@ export function Sidebar() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled>
+                <LayoutDashboard className="mr-2 h-4 w-4" />
+                <span>Placeholder Option</span>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <Settings className="mr-2 h-4 w-4" />
-              <span>Settings</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled>
-              <LayoutDashboard className="mr-2 h-4 w-4" />
-              <span>Placeholder Option</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive focus:text-destructive">
+            <DropdownMenuItem className="text-destructive focus:text-destructive cursor-pointer" onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />
               <span>Log out</span>
             </DropdownMenuItem>

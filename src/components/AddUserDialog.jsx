@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Plus, Loader2, ArrowRight } from 'lucide-react';
 import { createUser } from '@/app/actions/users';
+import { getDepartments } from '@/app/actions/department';
+import { getDesignations } from '@/app/actions/designation';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -43,6 +45,26 @@ function SubmitButton() {
 
 export function AddUserDialog({ trigger }) {
   const [open, setOpen] = useState(false);
+  const [departments, setDepartments] = useState([]);
+  const [designations, setDesignations] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (open) {
+      loadData();
+    }
+  }, [open]);
+
+  async function loadData() {
+    setIsLoading(true);
+    const [deptRes, desigRes] = await Promise.all([
+      getDepartments(),
+      getDesignations()
+    ]);
+    if (deptRes.success) setDepartments(deptRes.departments);
+    if (desigRes.success) setDesignations(desigRes.designations);
+    setIsLoading(false);
+  }
 
   async function clientAction(formData) {
     const result = await createUser(formData);
@@ -87,26 +109,28 @@ export function AddUserDialog({ trigger }) {
               <Input id="password" name="password" type="text" defaultValue="UEM@123" required />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="departmentId" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Department</Label>
-              <Select name="departmentId" required>
+              <Label htmlFor="departmentName" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Department</Label>
+              <Select name="departmentName" required disabled={isLoading || departments.length === 0}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a department" />
+                  <SelectValue placeholder={isLoading ? "Loading..." : "Select a department"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="dummy-dept-1">CSE Department</SelectItem>
-                  <SelectItem value="dummy-dept-2">HR Department</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.name} label={dept.name}>{dept.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="designationId" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Designation</Label>
-              <Select name="designationId" required>
+              <Label htmlFor="designationName" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Designation</Label>
+              <Select name="designationName" required disabled={isLoading || designations.length === 0}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a designation" />
+                  <SelectValue placeholder={isLoading ? "Loading..." : "Select a designation"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="dummy-desig-1">Teacher</SelectItem>
-                  <SelectItem value="dummy-desig-2">HOD</SelectItem>
+                  {designations.map((desig) => (
+                    <SelectItem key={desig.id} value={desig.name} label={desig.name}>{desig.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
