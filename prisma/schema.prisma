@@ -59,6 +59,8 @@ model HierarchyNode {
   designationId   String
   departmentId    String
   parentId        String?
+  x               Float?   @default(50)
+  y               Float?   @default(50)
   
   // The connections
   designation     Designation @relation(fields: [designationId], references: [id])

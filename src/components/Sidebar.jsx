@@ -24,6 +24,7 @@ export function Sidebar({ isAdmin, isManager, userName, userEmail }) {
   const router = useRouter();
 
   const handleLogout = async () => {
+    setActiveView('my-status');
     await logoutAction();
     router.push('/login');
   };

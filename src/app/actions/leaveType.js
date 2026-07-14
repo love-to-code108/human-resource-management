@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { getSession } from '@/lib/session';
 
 export async function getLeaveTypes() {
   try {
@@ -24,6 +25,9 @@ export async function getLeaveTypes() {
 
 export async function addLeaveType(name, defaultDays, overrides = []) {
   try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { success: false, error: 'Unauthorized' };
+
     const newLeaveType = await prisma.leaveType.create({
       data: { 
         name, 
@@ -43,6 +47,25 @@ export async function addLeaveType(name, defaultDays, overrides = []) {
         }
       }
     });
+
+    // Propagate Leave Balances to all existing users
+    const currentYear = new Date().getFullYear();
+    const allUsers = await prisma.user.findMany({ select: { id: true, designationId: true } });
+    const balanceData = allUsers.map(user => {
+      const override = overrides.find(o => o.designationId === user.designationId);
+      const totalDays = override ? parseInt(override.allocatedDays) : parseInt(defaultDays);
+      return {
+        userId: user.id,
+        leaveTypeId: newLeaveType.id,
+        year: currentYear,
+        totalDays,
+        usedDays: 0
+      };
+    });
+
+    if (balanceData.length > 0) {
+      await prisma.leaveBalance.createMany({ data: balanceData });
+    }
     revalidatePath('/'); 
     return { success: true, leaveType: newLeaveType };
   } catch (error) {
@@ -53,6 +76,9 @@ export async function addLeaveType(name, defaultDays, overrides = []) {
 
 export async function updateLeaveType(id, name, defaultDays, overrides = []) {
   try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { success: false, error: 'Unauthorized' };
+
     // 1. Delete all existing overrides for this leave type
     await prisma.leaveAllocationRule.deleteMany({
       where: { leaveTypeId: id }
@@ -79,6 +105,35 @@ export async function updateLeaveType(id, name, defaultDays, overrides = []) {
         }
       }
     });
+
+    // 3. Retroactively update all existing user balances for this year
+    const currentYear = new Date().getFullYear();
+
+    // Reset everyone to the new default first
+    await prisma.leaveBalance.updateMany({
+      where: { leaveTypeId: id, year: currentYear },
+      data: { totalDays: parseInt(defaultDays) }
+    });
+
+    // Apply the specific overrides
+    for (const override of overrides) {
+      const usersWithDesig = await prisma.user.findMany({
+        where: { designationId: override.designationId },
+        select: { id: true }
+      });
+      
+      if (usersWithDesig.length > 0) {
+        const userIds = usersWithDesig.map(u => u.id);
+        await prisma.leaveBalance.updateMany({
+          where: { 
+            leaveTypeId: id, 
+            year: currentYear,
+            userId: { in: userIds }
+          },
+          data: { totalDays: parseInt(override.allocatedDays) }
+        });
+      }
+    }
     revalidatePath('/');
     return { success: true, leaveType: updatedLeaveType };
   } catch (error) {
@@ -89,6 +144,9 @@ export async function updateLeaveType(id, name, defaultDays, overrides = []) {
 
 export async function deleteLeaveType(id) {
   try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { success: false, error: 'Unauthorized' };
+
     await prisma.leaveType.delete({
       where: { id },
     });

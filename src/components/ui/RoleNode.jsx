@@ -2,13 +2,14 @@ import { Handle, Position } from '@xyflow/react';
 import { Briefcase, Building2, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export function RoleNode({ data }) {
+export function RoleNode({ data, selected }) {
   const isGlobal = data.departmentName?.toLowerCase() === 'global' || data.departmentName?.toLowerCase() === 'uem jaipur' || !data.departmentName;
 
   return (
     <div className={cn(
       "relative min-w-[200px] rounded-xl border-2 bg-background p-4 shadow-sm transition-all hover:shadow-md",
-      isGlobal ? "border-primary/50" : "border-border"
+      isGlobal ? "border-primary/50" : "border-border",
+      selected && "ring-2 ring-primary ring-offset-2 border-primary bg-primary/5"
     )}>
       {/* Target handle (for incoming connections / "reports to") */}
       <Handle 

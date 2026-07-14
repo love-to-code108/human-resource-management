@@ -10,12 +10,13 @@ import {
   addEdge,
   ReactFlowProvider,
   Panel,
-  MarkerType
+  MarkerType,
+  useReactFlow
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import { RoleNode } from '@/components/ui/RoleNode';
-import { getHierarchyNodes, createHierarchyNode, updateHierarchyConnection, deleteHierarchyNode } from '@/app/actions/hierarchy';
+import { getHierarchyNodes, createHierarchyNode, updateHierarchyConnection, deleteHierarchyNode, updateNodePosition } from '@/app/actions/hierarchy';
 import { getDepartments } from '@/app/actions/department';
 import { getDesignations } from '@/app/actions/designation';
 import { Button } from '@/components/ui/button';
@@ -39,8 +40,10 @@ function HierarchyBuilder() {
   const [selectedDeptName, setSelectedDeptName] = useState('');
   const [selectedDesigName, setSelectedDesigName] = useState('');
   const [isAddingNode, setIsAddingNode] = useState(false);
+  const [menu, setMenu] = useState(null); // { id, top, left, type }
   
   const { resolvedTheme } = useTheme();
+  const reactFlowInstance = useReactFlow();
 
   useEffect(() => {
     async function loadData() {
@@ -63,7 +66,10 @@ function HierarchyBuilder() {
         const flowNodes = rawNodes.map((n, i) => ({
           id: n.id,
           type: 'roleNode',
-          position: { x: (i % 3) * 250 + 50, y: Math.floor(i / 3) * 150 + 50 },
+          position: { 
+            x: n.x ?? ((i % 3) * 250 + 50), 
+            y: n.y ?? (Math.floor(i / 3) * 150 + 50) 
+          },
           data: { 
             designationName: n.designation.name,
             departmentName: n.department.name,
@@ -98,6 +104,14 @@ function HierarchyBuilder() {
 
   const onNodesChange = useCallback(
     (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
+    []
+  );
+
+  const onNodeDragStop = useCallback(
+    async (event, node) => {
+      // Save position to DB silently
+      await updateNodePosition(node.id, node.position.x, node.position.y);
+    },
     []
   );
 
@@ -184,7 +198,15 @@ function HierarchyBuilder() {
     if (!deptId || !desigId) return;
 
     setIsAddingNode(true);
-    const res = await createHierarchyNode(deptId, desigId);
+
+    // Calculate smart spawn location (center of viewport)
+    const { x: vpX, y: vpY, zoom } = reactFlowInstance.getViewport();
+    // Assuming container width ~ 800 and height ~ 600 if we can't measure easily
+    // A safe approximation for the center is:
+    const spawnX = (-vpX + 400) / zoom + (Math.random() * 40 - 20);
+    const spawnY = (-vpY + 300) / zoom + (Math.random() * 40 - 20);
+
+    const res = await createHierarchyNode(deptId, desigId, spawnX, spawnY);
     
     if (res.error) {
       toast.error(res.error);
@@ -194,7 +216,7 @@ function HierarchyBuilder() {
       const newNode = {
         id: n.id,
         type: 'roleNode',
-        position: { x: 50, y: 50 }, // Drop new nodes at top left
+        position: { x: n.x ?? spawnX, y: n.y ?? spawnY },
         data: { 
           designationName: n.designation.name,
           departmentName: n.department.name,
@@ -220,6 +242,47 @@ function HierarchyBuilder() {
     }
   };
 
+  const onNodeContextMenu = useCallback(
+    (event, node) => {
+      event.preventDefault();
+      setMenu({
+        id: node.id,
+        top: event.clientY,
+        left: event.clientX,
+        type: 'node'
+      });
+    },
+    [setMenu]
+  );
+
+  const onEdgeContextMenu = useCallback(
+    (event, edge) => {
+      event.preventDefault();
+      setMenu({
+        id: edge.id,
+        top: event.clientY,
+        left: event.clientX,
+        type: 'edge',
+        source: edge.source,
+        target: edge.target
+      });
+    },
+    [setMenu]
+  );
+
+  const onPaneClick = useCallback(() => setMenu(null), []);
+
+  const handleContextDelete = () => {
+    if (!menu) return;
+    if (menu.type === 'node') {
+      handleDeleteNode(menu.id);
+    } else if (menu.type === 'edge') {
+      onEdgesDelete([{ id: menu.id, source: menu.source, target: menu.target }]);
+      setEdges((eds) => eds.filter(e => e.id !== menu.id));
+    }
+    setMenu(null);
+  };
+
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -242,13 +305,19 @@ function HierarchyBuilder() {
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
+          onNodeDragStop={onNodeDragStop}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onNodesDelete={onNodesDelete}
           onEdgesDelete={onEdgesDelete}
+          onNodeContextMenu={onNodeContextMenu}
+          onEdgeContextMenu={onEdgeContextMenu}
+          onPaneClick={onPaneClick}
           nodeTypes={nodeTypes}
           colorMode={resolvedTheme === 'dark' ? 'dark' : 'light'}
           fitView
+          fitViewOptions={{ maxZoom: 1, padding: 0.2 }}
+          proOptions={{ hideAttribution: true }}
           className="bg-muted/30"
         >
           <Background color="#ccc" gap={16} />
@@ -297,6 +366,21 @@ function HierarchyBuilder() {
             </div>
           </Panel>
         </ReactFlow>
+
+        {menu && (
+          <div 
+            className="fixed z-50 min-w-32 bg-background border rounded-md shadow-md p-1"
+            style={{ top: menu.top, left: menu.left }}
+          >
+            <button 
+              className="w-full flex items-center px-2 py-1.5 text-sm text-destructive hover:bg-muted rounded-sm transition-colors"
+              onClick={handleContextDelete}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              {menu.type === 'node' ? 'Delete Role' : 'Remove Connection'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

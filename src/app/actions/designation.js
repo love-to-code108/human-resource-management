@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { getSession } from '@/lib/session';
 
 export async function getDesignations() {
   try {
@@ -17,6 +18,9 @@ export async function getDesignations() {
 
 export async function addDesignation(name) {
   try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { success: false, error: 'Unauthorized' };
+
     const newDesignation = await prisma.designation.create({
       data: { name },
     });
@@ -30,6 +34,9 @@ export async function addDesignation(name) {
 
 export async function updateDesignation(id, name) {
   try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { success: false, error: 'Unauthorized' };
+
     const updatedDesignation = await prisma.designation.update({
       where: { id },
       data: { name },
@@ -44,6 +51,9 @@ export async function updateDesignation(id, name) {
 
 export async function deleteDesignation(id) {
   try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { success: false, error: 'Unauthorized' };
+
     await prisma.designation.delete({
       where: { id },
     });
