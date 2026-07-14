@@ -108,3 +108,75 @@ export async function deleteUser(userId) {
     return { error: 'Failed to delete user.' };
   }
 }
+
+export async function editUser(userId, data) {
+  try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { error: 'Unauthorized. Admin access required.' };
+
+    const { name, email, password, departmentId, designationId } = data;
+
+    const userToEdit = await prisma.user.findUnique({ where: { id: userId } });
+    if (!userToEdit) return { error: 'User not found.' };
+
+    if (userToEdit.isAdmin) {
+      return { error: 'Cannot edit an Admin user.' };
+    }
+
+    // Update basic info
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        name,
+        email,
+        password,
+        departmentId,
+        designationId
+      }
+    });
+
+    // If designation changed, recalculate leave balances
+    if (userToEdit.designationId !== designationId) {
+      const activeLeaveTypes = await prisma.leaveType.findMany({ 
+        where: { isActive: true },
+        include: { allocations: true }
+      });
+      const currentYear = new Date().getFullYear();
+
+      for (const lt of activeLeaveTypes) {
+        const override = lt.allocations?.find(a => a.designationId === designationId);
+        const finalDays = override ? override.allocatedDays : lt.defaultDays;
+
+        const existingBalance = await prisma.leaveBalance.findFirst({
+          where: {
+            userId: userId,
+            leaveTypeId: lt.id,
+            year: currentYear
+          }
+        });
+
+        if (existingBalance) {
+          await prisma.leaveBalance.update({
+            where: { id: existingBalance.id },
+            data: { totalDays: finalDays }
+          });
+        } else {
+          await prisma.leaveBalance.create({
+            data: {
+              userId: userId,
+              leaveTypeId: lt.id,
+              year: currentYear,
+              totalDays: finalDays,
+              usedDays: 0
+            }
+          });
+        }
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error editing user:', error);
+    return { error: 'Failed to edit user. Check if email is already in use.' };
+  }
+}
