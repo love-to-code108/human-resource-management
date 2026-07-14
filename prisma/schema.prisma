@@ -17,7 +17,8 @@ model Designation {
   id          String   @id @default(cuid())
   name        String   @unique
   isActive    Boolean  @default(true)
-  users       User[]
+  users         User[]
+  nodes         HierarchyNode[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -26,6 +27,7 @@ model Department {
   id          String   @id @default(cuid())
   name        String   @unique
   users       User[]
+  nodes       HierarchyNode[]
 }
 
 model User {
@@ -38,21 +40,35 @@ model User {
   designationId   String?
   departmentId    String?
   
-  // The Dynamic Routing Chain: Who does this user report to?
-  reportsToId     String?        
-
+  // The hierarchy is completely handled by the HierarchyNode map!
+  
   designation     Designation?   @relation(fields: [designationId], references: [id])
   department      Department?    @relation(fields: [departmentId], references: [id])
-  
-  manager         User?          @relation("ReportingChain", fields: [reportsToId], references: [id])
-  subordinates    User[]         @relation("ReportingChain")
 
   leaveBalances   LeaveBalance[]
   leavesApplied   LeaveRequest[] @relation("Applicant")
-  leavesToApprove LeaveRequest[] @relation("CurrentApprover")
 
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+}
+
+model HierarchyNode {
+  id              String   @id @default(cuid())
+  designationId   String
+  departmentId    String
+  parentId        String?
+  
+  // The connections
+  designation     Designation @relation(fields: [designationId], references: [id])
+  department      Department  @relation(fields: [departmentId], references: [id])
+  parent          HierarchyNode?  @relation("NodeHierarchy", fields: [parentId], references: [id])
+  children        HierarchyNode[] @relation("NodeHierarchy")
+
+  // The queue of leaves waiting for THIS ROLE to approve them
+  pendingApprovals LeaveRequest[] @relation("NodeApprover")
+
+  // Ensure only one node exists per combination
+  @@unique([departmentId, designationId]) 
 }
 
 model LeaveType {
@@ -91,11 +107,11 @@ model LeaveRequest {
   reason          String        // Will store rich text HTML/JSON from Novel editor
   status          RequestStatus @default(PENDING)
   
-  nextApproverId  String?
+  pendingAtNodeId String?
   
   leaveType       LeaveType     @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
   applicant       User          @relation("Applicant", fields: [applicantId], references: [id])
-  nextApprover    User?         @relation("CurrentApprover", fields: [nextApproverId], references: [id])
+  pendingAtNode   HierarchyNode? @relation("NodeApprover", fields: [pendingAtNodeId], references: [id])
 
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt

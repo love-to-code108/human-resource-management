@@ -35,6 +35,9 @@ export async function createUser(formData) {
       designationId = desig?.id;
     }
     
+    const activeLeaveTypes = await prisma.leaveType.findMany({ where: { isActive: true } });
+    const currentYear = new Date().getFullYear();
+    
     await prisma.user.create({
       data: {
         name,
@@ -42,6 +45,13 @@ export async function createUser(formData) {
         password,
         ...(departmentId && { departmentId }),
         ...(designationId && { designationId }),
+        leaveBalances: {
+          create: activeLeaveTypes.map(lt => ({
+            leaveTypeId: lt.id,
+            totalDays: lt.defaultDays,
+            year: currentYear,
+          }))
+        }
       },
     });
 

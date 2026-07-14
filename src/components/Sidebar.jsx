@@ -53,7 +53,7 @@ export function Sidebar() {
         <HoverCard>
           <HoverCardTrigger asChild>
             <button 
-              onClick={() => setActiveView('overview')}
+              onClick={() => setActiveView('my-status')}
               className="flex items-center gap-2 font-semibold hover:opacity-80 transition-opacity"
             >
               <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">

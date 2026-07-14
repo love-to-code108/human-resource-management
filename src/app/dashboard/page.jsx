@@ -1,7 +1,6 @@
 'use client';
 
 import { useDashboardStore } from '@/store/dashboardStore';
-import { DashboardOverview } from '@/components/dashboard-views/DashboardOverview';
 import { NewLeaveApplication } from '@/components/dashboard-views/NewLeaveApplication';
 import { MyApplicationsStatus } from '@/components/dashboard-views/MyApplicationsStatus';
 import { Hierarchy } from '@/components/dashboard-views/Hierarchy';
@@ -12,8 +11,6 @@ export default function DashboardPage() {
   const activeView = useDashboardStore((state) => state.activeView);
 
   switch (activeView) {
-    case 'overview':
-      return <DashboardOverview />;
     case 'new-leave':
       return <NewLeaveApplication />;
     case 'my-status':
@@ -25,6 +22,6 @@ export default function DashboardPage() {
     case 'user-management':
       return <UserManagement />;
     default:
-      return <DashboardOverview />;
+      return <MyApplicationsStatus />;
   }
 }
