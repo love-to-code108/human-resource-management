@@ -147,9 +147,14 @@ export async function deleteLeaveType(id) {
     const session = await getSession();
     if (!session?.isAdmin) return { success: false, error: 'Unauthorized' };
 
-    await prisma.leaveType.delete({
-      where: { id },
-    });
+    // Due to 'onDelete: Restrict' in Prisma schema for LeaveBalance and LeaveRequest,
+    // we must manually delete associated records in a transaction to successfully delete the LeaveType.
+    await prisma.$transaction([
+      prisma.leaveBalance.deleteMany({ where: { leaveTypeId: id } }),
+      prisma.leaveRequest.deleteMany({ where: { leaveTypeId: id } }),
+      prisma.leaveType.delete({ where: { id } }),
+    ]);
+
     revalidatePath('/');
     return { success: true };
   } catch (error) {
