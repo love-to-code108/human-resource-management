@@ -312,7 +312,7 @@ export function UserManagement() {
                   <TableHead className="w-[300px] text-xs uppercase tracking-wider font-semibold text-muted-foreground">Employee</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Designation</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Department</TableHead>
-                  <TableHead className="text-right text-xs uppercase tracking-wider font-semibold text-muted-foreground">Action</TableHead>
+                  {isAdmin && <TableHead className="text-right text-xs uppercase tracking-wider font-semibold text-muted-foreground">Action</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -349,20 +349,22 @@ export function UserManagement() {
                         <span>{user.department?.name || 'Unassigned'}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {isAdmin && !user.isAdmin && (
-                          <>
-                            <Button variant="ghost" size="icon" onClick={() => openEdit(user)} className="text-muted-foreground hover:text-foreground hover:bg-transparent" title="Edit User">
-                              <Edit2 className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => initiateDelete(user)} className="text-muted-foreground hover:text-destructive hover:bg-transparent" title="Delete User">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
+                    {isAdmin && (
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {!user.isAdmin && (
+                            <>
+                              <Button variant="ghost" size="icon" onClick={() => openEdit(user)} className="text-muted-foreground hover:text-foreground hover:bg-transparent" title="Edit User">
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => initiateDelete(user)} className="text-muted-foreground hover:text-destructive hover:bg-transparent" title="Delete User">
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

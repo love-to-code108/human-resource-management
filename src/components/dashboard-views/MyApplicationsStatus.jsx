@@ -208,7 +208,7 @@ export function MyApplicationsStatus() {
                     </div>
                   </div>
 
-                  <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-6">
                     {/* Requested Dates */}
                     <div>
                       <h4 className="text-sm font-medium text-muted-foreground mb-2">Requested Dates</h4>
