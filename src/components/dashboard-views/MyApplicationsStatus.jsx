@@ -1,10 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getMyLeaves, acceptNegotiation, withdrawLeave } from '@/app/actions/leave';
-import { Loader2, Calendar, Clock, CheckCircle2, XCircle, AlertCircle, Trash2, ArrowRight } from 'lucide-react';
+import { getMyLeaves, acceptNegotiation, withdrawLeave, editLeaveApplication, getMyLeaveBalances } from '@/app/actions/leave';
+import { getApprovalChainForUser } from '@/app/actions/hierarchy';
+import { Loader2, Calendar, Clock, CheckCircle2, XCircle, AlertCircle, Trash2, ArrowRight, Edit2, Send, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { RichTextEditor } from '@/components/ui/RichTextEditor';
+import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { 
@@ -28,13 +36,34 @@ import {
 
 export function MyApplicationsStatus() {
   const [leaves, setLeaves] = useState([]);
+  const [approvalChain, setApprovalChain] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
   const [withdrawConfirmId, setWithdrawConfirmId] = useState(null);
 
+  // Edit State
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editData, setEditData] = useState(null);
+  const [newFromDate, setNewFromDate] = useState();
+  const [newToDate, setNewToDate] = useState();
+  const [newReason, setNewReason] = useState('');
+
   useEffect(() => {
-    loadLeaves();
+    loadData();
   }, []);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    const [leavesRes, chainRes] = await Promise.all([
+      getMyLeaves(),
+      getApprovalChainForUser()
+    ]);
+    if (leavesRes.success) setLeaves(leavesRes.leaves);
+    else toast.error(leavesRes.error);
+    
+    if (chainRes.success) setApprovalChain(chainRes.chain);
+    setIsLoading(false);
+  };
 
   const loadLeaves = async () => {
     setIsLoading(true);
@@ -52,7 +81,7 @@ export function MyApplicationsStatus() {
     const res = await acceptNegotiation(id);
     if (res.success) {
       toast.success("Accepted proposed dates. Application sent back to manager for final approval.");
-      await loadLeaves();
+      await loadData();
     } else {
       toast.error(res.error);
     }
@@ -64,12 +93,44 @@ export function MyApplicationsStatus() {
     const res = await withdrawLeave(id);
     if (res.success) {
       toast.success("Application withdrawn.");
-      await loadLeaves();
+      await loadData();
     } else {
       toast.error(res.error);
     }
     setProcessingId(null);
     setWithdrawConfirmId(null);
+  };
+
+  const openEditDialog = (leave) => {
+    setEditData(leave);
+    setNewFromDate(new Date(leave.fromDate));
+    setNewToDate(new Date(leave.toDate));
+    setNewReason(leave.reason);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!newFromDate || !newToDate || !newReason) {
+      toast.error('All fields are required.');
+      return;
+    }
+    
+    setProcessingId(editData.id);
+    const res = await editLeaveApplication(editData.id, {
+      fromDate: format(newFromDate, 'yyyy-MM-dd'),
+      toDate: format(newToDate, 'yyyy-MM-dd'),
+      reason: newReason
+    });
+    
+    if (res.success) {
+      toast.success('Application updated successfully.');
+      setIsEditDialogOpen(false);
+      await loadData();
+    } else {
+      toast.error(res.error);
+    }
+    setProcessingId(null);
   };
 
   const getStatusBadge = (status) => {
@@ -133,12 +194,36 @@ export function MyApplicationsStatus() {
                       </p>
                     </div>
                     <div className="sm:text-right">
-                      <p className="text-sm font-medium text-muted-foreground">Pending At</p>
-                      <p className="text-sm">
-                        {leave.pendingAtNodes && leave.pendingAtNodes.length > 0 ? 
-                          leave.pendingAtNodes.map(node => `${node.designation.name}, ${node.department.name}`).join(' OR ') 
-                          : 'System (Auto)'}
-                      </p>
+                      <p className="text-sm font-medium text-muted-foreground">Status Tracker</p>
+                      <div className="flex items-center gap-2 overflow-x-auto pb-2 pt-2 max-w-[300px] sm:max-w-md">
+                        {approvalChain.map((level, i) => {
+                          const pendingIds = leave.pendingAtNodes.map(n => n.id);
+                          const currentLevelIndex = approvalChain.findIndex(lvl => lvl.some(node => pendingIds.includes(node.id)));
+                          
+                          let state = 'pending';
+                          if (leave.status === 'APPROVED') state = 'approved';
+                          else if (leave.status === 'REJECTED' && currentLevelIndex === i) state = 'rejected';
+                          else if (leave.status === 'REJECTED' && currentLevelIndex === -1 && i === approvalChain.length - 1) state = 'rejected'; // fallback
+                          else if (currentLevelIndex !== -1) {
+                            if (i < currentLevelIndex) state = 'approved';
+                            else if (i === currentLevelIndex) state = 'current';
+                          } else if (leave.status === 'REJECTED') {
+                             state = 'pending'; // don't highlight if we don't know
+                          }
+
+                          return (
+                            <div key={i} className="flex items-center gap-2 shrink-0">
+                              <Badge 
+                                variant={state === 'approved' ? 'default' : state === 'current' ? 'outline' : state === 'rejected' ? 'destructive' : 'secondary'}
+                                className={state === 'current' ? 'border-primary text-primary bg-primary/5' : ''}
+                              >
+                                {level.map(n => n.designation.name).join(' OR ')}
+                              </Badge>
+                              {i < approvalChain.length - 1 && <ArrowRight className="w-3 h-3 text-muted-foreground" />}
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
                   </div>
 
@@ -186,36 +271,59 @@ export function MyApplicationsStatus() {
 
                   {/* Actions */}
                   <div className="pt-2 flex gap-3">
-                    {leave.status === 'NEGOTIATING' ? (
-                      <>
-                        <Button 
-                          variant="outline" 
-                          onClick={() => setWithdrawConfirmId(leave.id)}
-                          disabled={processingId === leave.id}
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Withdraw
-                        </Button>
-                        <Button 
-                          onClick={() => handleAccept(leave.id)}
-                          disabled={processingId === leave.id}
-                        >
-                          {processingId === leave.id && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                          Accept Proposed Dates
-                        </Button>
-                      </>
-                    ) : leave.status === 'PENDING' ? (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => setWithdrawConfirmId(leave.id)}
-                        disabled={processingId === leave.id}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        {processingId === leave.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
-                        Withdraw Request
-                      </Button>
-                    ) : null}
+                    {(() => {
+                      const pendingIds = leave.pendingAtNodes.map(n => n.id);
+                      const currentLevelIndex = approvalChain.findIndex(lvl => lvl.some(node => pendingIds.includes(node.id)));
+                      const canEdit = leave.status === 'PENDING' && currentLevelIndex === 0;
+
+                      return (
+                        <>
+                          {leave.status === 'NEGOTIATING' ? (
+                            <>
+                              <Button 
+                                variant="outline" 
+                                onClick={() => setWithdrawConfirmId(leave.id)}
+                                disabled={processingId === leave.id}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Withdraw
+                              </Button>
+                              <Button 
+                                onClick={() => handleAccept(leave.id)}
+                                disabled={processingId === leave.id}
+                              >
+                                {processingId === leave.id && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                Accept Proposed Dates
+                              </Button>
+                            </>
+                          ) : leave.status === 'PENDING' ? (
+                            <>
+                              {canEdit && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => openEditDialog(leave)}
+                                  disabled={processingId === leave.id}
+                                >
+                                  <Edit2 className="w-4 h-4 mr-2" />
+                                  Edit Request
+                                </Button>
+                              )}
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => setWithdrawConfirmId(leave.id)}
+                                disabled={processingId === leave.id}
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              >
+                                {processingId === leave.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                                Withdraw Request
+                              </Button>
+                            </>
+                          ) : null}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -245,6 +353,97 @@ export function MyApplicationsStatus() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] border-border/50 shadow-md bg-card dark:bg-zinc-900/90 backdrop-blur-sm max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Leave Application</DialogTitle>
+            <DialogDescription>
+              You can only edit applications that have not yet been reviewed by any manager.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleEditSubmit} className="space-y-6 py-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>From Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal bg-background",
+                        !newFromDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {newFromDate ? format(newFromDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={newFromDate}
+                      onSelect={setNewFromDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="grid gap-2">
+                <Label>To Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal bg-background",
+                        !newToDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {newToDate ? format(newToDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={newToDate}
+                      onSelect={setNewToDate}
+                      disabled={(date) => {
+                        const minDate = newFromDate ? new Date(newFromDate) : new Date();
+                        minDate.setHours(0, 0, 0, 0);
+                        return date < minDate;
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Justification</Label>
+              <RichTextEditor
+                content={newReason}
+                onChange={setNewReason}
+                placeholder="Explain the reason for your leave..."
+              />
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setIsEditDialogOpen(false)} disabled={processingId === editData?.id}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={processingId === editData?.id}>
+                {processingId === editData?.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

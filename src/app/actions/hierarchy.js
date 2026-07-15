@@ -150,3 +150,57 @@ export async function updateNodePosition(nodeId, x, y) {
     return { error: 'Failed to update position' };
   }
 }
+
+export async function getApprovalChainForUser() {
+  try {
+    const session = await getSession();
+    if (!session?.userId) return { error: 'Not authenticated' };
+
+    const user = await prisma.user.findUnique({ where: { id: session.userId } });
+    if (!user?.departmentId || !user?.designationId) {
+      return { success: true, chain: [] };
+    }
+
+    // Fetch all nodes so we can traverse in memory (fast)
+    const allNodes = await prisma.hierarchyNode.findMany({
+      include: {
+        department: true,
+        designation: true,
+        parents: true,
+      }
+    });
+
+    const userNode = allNodes.find(
+      n => n.departmentId === user.departmentId && n.designationId === user.designationId
+    );
+
+    if (!userNode) return { success: true, chain: [] };
+
+    const chain = [];
+    let currentLevelIds = (userNode.parents || []).map(p => p.id);
+    const visited = new Set([userNode.id]);
+
+    while (currentLevelIds.length > 0) {
+      const levelNodes = currentLevelIds.map(id => allNodes.find(n => n.id === id)).filter(Boolean);
+      if (levelNodes.length > 0) {
+        chain.push(levelNodes);
+      }
+      
+      const nextLevelIds = new Set();
+      for (const node of levelNodes) {
+        if (!visited.has(node.id)) {
+          visited.add(node.id);
+          for (const p of node.parents || []) {
+            nextLevelIds.add(p.id);
+          }
+        }
+      }
+      currentLevelIds = Array.from(nextLevelIds);
+    }
+
+    return { success: true, chain };
+  } catch (error) {
+    console.error('Error fetching approval chain:', error);
+    return { error: 'Failed to fetch approval chain.' };
+  }
+}

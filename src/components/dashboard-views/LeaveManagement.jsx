@@ -212,11 +212,9 @@ export function LeaveManagement() {
                     />
                   </div>
 
-                  {/* Actions */}
-                  <div className="pt-2 flex flex-wrap gap-3">
+                  <div className="pt-4 mt-2 flex flex-wrap items-center justify-end gap-3 border-t border-border/50 border-dashed">
                     <Button 
                       variant="outline"
-                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50"
                       onClick={() => openProposeDialog(leave)}
                       disabled={processingId === leave.id}
                     >
@@ -224,8 +222,7 @@ export function LeaveManagement() {
                       Propose Dates
                     </Button>
                     <Button 
-                      variant="outline"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      variant="destructive"
                       onClick={() => setRejectConfirmId(leave.id)}
                       disabled={processingId === leave.id}
                     >
@@ -233,7 +230,6 @@ export function LeaveManagement() {
                       Reject
                     </Button>
                     <Button 
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
                       onClick={() => setApproveConfirmId(leave.id)}
                       disabled={processingId === leave.id}
                     >

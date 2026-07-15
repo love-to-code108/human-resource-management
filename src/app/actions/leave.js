@@ -385,3 +385,42 @@ export async function getMyLeaveBalances() {
     return { error: 'Failed to fetch balances.' };
   }
 }
+
+export async function editLeaveApplication(leaveId, data) {
+  try {
+    const session = await getSession();
+    if (!session?.userId) return { error: 'Not authenticated' };
+
+    const { fromDate, toDate, reason } = data;
+    if (!fromDate || !toDate || !reason) return { error: 'All fields are required.' };
+
+    const startDate = new Date(fromDate);
+    const endDate = new Date(toDate);
+    
+    if (startDate > endDate) {
+      return { error: 'End date cannot be before start date.' };
+    }
+
+    const leave = await prisma.leaveRequest.findUnique({
+      where: { id: leaveId, applicantId: session.userId }
+    });
+
+    if (!leave) return { error: 'Leave request not found.' };
+    if (leave.status !== 'PENDING') return { error: 'Only pending requests can be edited.' };
+
+    await prisma.leaveRequest.update({
+      where: { id: leaveId },
+      data: {
+        fromDate: startDate,
+        toDate: endDate,
+        reason
+      }
+    });
+
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error editing leave application:', error);
+    return { error: 'Failed to edit leave application.' };
+  }
+}
