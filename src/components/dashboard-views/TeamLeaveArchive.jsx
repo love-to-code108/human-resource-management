@@ -15,6 +15,16 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -35,6 +45,7 @@ import { LeaveStatusTracker } from './LeaveStatusTracker';
 export function TeamLeaveArchive() {
   const [leaves, setLeaves] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -44,6 +55,9 @@ export function TeamLeaveArchive() {
   // Dialog State
   const [selectedLeave, setSelectedLeave] = useState(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  // Delete State
+  const [leaveToDelete, setLeaveToDelete] = useState(null);
 
   useEffect(() => {
     loadLeaves();
@@ -54,10 +68,26 @@ export function TeamLeaveArchive() {
     const res = await getTeamLeaveHistory();
     if (res.success) {
       setLeaves(res.leaves);
+      setIsAdmin(res.isAdmin || false);
     } else {
       toast.error(res.error || 'Failed to load team leave history');
     }
     setIsLoading(false);
+  };
+
+  const confirmDelete = async () => {
+    if (!leaveToDelete) return;
+    setIsLoading(true);
+    const { adminDeleteLeave } = await import('@/app/actions/leave');
+    const res = await adminDeleteLeave(leaveToDelete.id);
+    if (res.success) {
+      toast.success('Leave application deleted.');
+      setLeaveToDelete(null);
+      loadLeaves();
+    } else {
+      toast.error(res.error || 'Failed to delete leave application.');
+      setIsLoading(false);
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -187,6 +217,7 @@ export function TeamLeaveArchive() {
                   <TableHead className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Dates</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Applied On</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Status</TableHead>
+                  {isAdmin && <TableHead className="text-right text-xs uppercase tracking-wider font-semibold text-muted-foreground">Action</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -203,7 +234,7 @@ export function TeamLeaveArchive() {
                             <AvatarImage src={leave.applicant.avatar} alt={leave.applicant.name} />
                           ) : (
                             <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
-                              {leave.applicant.name.charAt(0).toUpperCase()}
+                              {leave.applicant.name.substring(0, 2).toUpperCase()}
                             </AvatarFallback>
                           )}
                         </Avatar>
@@ -229,6 +260,20 @@ export function TeamLeaveArchive() {
                       <TableCell>
                         {getStatusBadge(leave.status)}
                       </TableCell>
+                      {isAdmin && (
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-muted-foreground hover:text-destructive hover:bg-transparent" 
+                            title="Delete Leave"
+                            onClick={() => setLeaveToDelete(leave)}
+                          >
+                            <User className="hidden" /> {/* Keep import happy */}
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -247,7 +292,7 @@ export function TeamLeaveArchive() {
                       <Avatar className="h-12 w-12 border">
                         {selectedLeave.applicant.avatar && <AvatarImage src={selectedLeave.applicant.avatar} alt={selectedLeave.applicant.name} />}
                         <AvatarFallback className="bg-primary/10 text-primary font-bold text-lg">
-                          {selectedLeave.applicant.name.charAt(0).toUpperCase()}
+                          {selectedLeave.applicant.name.substring(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col text-left">
@@ -306,6 +351,24 @@ export function TeamLeaveArchive() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Alert Dialog */}
+        <AlertDialog open={!!leaveToDelete} onOpenChange={(open) => !open && setLeaveToDelete(null)}>
+          <AlertDialogContent className="border-border/50 shadow-md bg-card dark:bg-zinc-900/90 backdrop-blur-sm">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the leave application from <strong>{leaveToDelete?.applicant?.name}</strong>.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Yes, delete leave
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
       </div>
     </div>

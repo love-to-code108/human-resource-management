@@ -217,6 +217,29 @@ export async function withdrawLeave(leaveId) {
   }
 }
 
+export async function adminDeleteLeave(leaveId) {
+  try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { error: 'Unauthorized. Admin access required.' };
+
+    const leave = await prisma.leaveRequest.findUnique({
+      where: { id: leaveId }
+    });
+
+    if (!leave) return { error: 'Leave request not found.' };
+
+    await prisma.leaveRequest.delete({
+      where: { id: leaveId }
+    });
+
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting leave as admin:', error);
+    return { error: 'Failed to delete leave.' };
+  }
+}
+
 // ==========================================
 // MANAGER APPROVAL ACTIONS
 // ==========================================

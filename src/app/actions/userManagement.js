@@ -324,7 +324,7 @@ export async function getTeamLeaveHistory() {
       };
     }));
 
-    return { success: true, leaves: leavesWithChain };
+    return { success: true, leaves: leavesWithChain, isAdmin: session.isAdmin };
   } catch (error) {
     console.error('Error fetching team leave history:', error);
     return { error: 'Failed to fetch team leave history.' };
