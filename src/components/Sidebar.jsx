@@ -5,7 +5,7 @@ import { useDashboardStore } from '@/store/dashboardStore';
 import {
   Users, Building2, Briefcase, CalendarClock, Settings, LogOut, Info,
   UserPlus, CalendarPlus, Network, FileText, CheckSquare, ListTodo,
-  ChevronsUpDown, ChevronRight, GalleryVerticalEnd
+  ChevronsUpDown, ChevronRight, GalleryVerticalEnd, History
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -123,6 +123,7 @@ export function Sidebar({ isAdmin, isManager, userName, userEmail, userAvatar })
             </h3>
             <div className="flex flex-col gap-1 w-full">
               <NavItem viewId="leave-management" icon={CheckSquare} label="Leave Approvals" />
+              <NavItem viewId="team-leaves" icon={History} label="Team Leaves" />
               <NavItem viewId="user-management" icon={Users} label="User Management" />
             </div>
           </div>

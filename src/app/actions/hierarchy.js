@@ -151,12 +151,16 @@ export async function updateNodePosition(nodeId, x, y) {
   }
 }
 
-export async function getApprovalChainForUser() {
+export async function getApprovalChainForUser(targetUserId = null) {
   try {
-    const session = await getSession();
-    if (!session?.userId) return { error: 'Not authenticated' };
+    let userIdToUse = targetUserId;
+    if (!userIdToUse) {
+      const session = await getSession();
+      if (!session?.userId) return { error: 'Not authenticated' };
+      userIdToUse = session.userId;
+    }
 
-    const user = await prisma.user.findUnique({ where: { id: session.userId } });
+    const user = await prisma.user.findUnique({ where: { id: userIdToUse } });
     if (!user?.departmentId || !user?.designationId) {
       return { success: true, chain: [] };
     }

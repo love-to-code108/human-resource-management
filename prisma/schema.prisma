@@ -50,6 +50,7 @@ model User {
 
   leaveBalances   LeaveBalance[]
   leavesApplied   LeaveRequest[] @relation("Applicant")
+  auditLogs       LeaveAuditLog[] @relation("Actor")
 
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -70,6 +71,7 @@ model HierarchyNode {
 
   // The queue of leaves waiting for THIS ROLE to approve them
   pendingApprovals LeaveRequest[] @relation("NodeApprover")
+  auditLogs        LeaveAuditLog[]
 
   // Ensure only one node exists per combination
   @@unique([departmentId, designationId]) 
@@ -135,6 +137,21 @@ model LeaveRequest {
 
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+
+  auditLogs       LeaveAuditLog[]
+}
+
+model LeaveAuditLog {
+  id              String        @id @default(cuid())
+  leaveRequestId  String
+  action          String        // e.g., SUBMITTED, APPROVED, REJECTED, PROPOSED_DATES
+  actorId         String        // User who performed the action
+  nodeId          String?       // The HierarchyNode they acted as (null if applicant)
+  createdAt       DateTime      @default(now())
+
+  leaveRequest    LeaveRequest  @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+  actor           User          @relation("Actor", fields: [actorId], references: [id], onDelete: Cascade)
+  node            HierarchyNode? @relation(fields: [nodeId], references: [id], onDelete: SetNull)
 }
 
 model Holiday {

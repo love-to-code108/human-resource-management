@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { LeaveStatusTracker } from './LeaveStatusTracker';
 import { 
   Card,
   CardContent,
@@ -261,49 +262,7 @@ export function MyApplicationsStatus() {
                   {/* Status Tracker */}
                   <div className="space-y-4 pt-2">
                     <h4 className="font-medium text-sm border-b pb-2">Status Tracker</h4>
-                    {approvalChain.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No approvals required. (Auto-approve)</p>
-                    ) : (
-                      <div className="relative pl-4 space-y-6 before:absolute before:left-[21px] before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
-                        {approvalChain.map((level, i) => {
-                          const pendingIds = leave.pendingAtNodes.map(n => n.id);
-                          const currentLevelIndex = approvalChain.findIndex(lvl => lvl.some(node => pendingIds.includes(node.id)));
-                          
-                          let state = 'pending';
-                          if (leave.status === 'APPROVED') state = 'approved';
-                          else if (leave.status === 'REJECTED' && currentLevelIndex === i) state = 'rejected';
-                          else if (leave.status === 'REJECTED' && currentLevelIndex === -1 && i === approvalChain.length - 1) state = 'rejected';
-                          else if (currentLevelIndex !== -1) {
-                            if (i < currentLevelIndex) state = 'approved';
-                            else if (i === currentLevelIndex) state = 'current';
-                          }
-
-                          return (
-                            <div key={i} className="relative flex items-start gap-4">
-                              <div className={cn(
-                                "relative z-10 w-3 h-3 mt-1.5 rounded-full ring-4 ring-background",
-                                state === 'approved' ? "bg-emerald-500" : state === 'current' ? "bg-primary animate-pulse" : state === 'rejected' ? "bg-destructive" : "bg-muted-foreground/30"
-                              )} />
-                              <div className="flex flex-col">
-                                <span className={cn(
-                                  "text-xs font-semibold uppercase tracking-wider mb-1",
-                                  state === 'approved' ? "text-emerald-600" : state === 'current' ? "text-primary" : state === 'rejected' ? "text-destructive" : "text-muted-foreground"
-                                )}>
-                                  Level {i + 1} {state === 'approved' && '- Approved'} {state === 'rejected' && '- Rejected'} {state === 'current' && '- Pending'}
-                                </span>
-                                <div className="space-y-1">
-                                  {level.map((node, j) => (
-                                    <div key={j} className={cn("text-sm", state === 'pending' ? "text-muted-foreground" : "font-medium")}>
-                                      {node.designation.name} <span className="font-normal opacity-70">({node.department.name})</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
+                    <LeaveStatusTracker leave={leave} approvalChain={approvalChain} />
                   </div>
 
                   {/* Actions */}

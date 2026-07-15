@@ -85,7 +85,7 @@ export async function submitLeaveApplication(data) {
     }
 
     // Create the Request
-    await prisma.leaveRequest.create({
+    const leaveRequest = await prisma.leaveRequest.create({
       data: {
         applicantId: user.id,
         leaveTypeId,
@@ -97,6 +97,14 @@ export async function submitLeaveApplication(data) {
         pendingAtNodes: parents && parents.length > 0 ? {
           connect: parents.map(p => ({ id: p.id }))
         } : undefined,
+      }
+    });
+
+    await prisma.leaveAuditLog.create({
+      data: {
+        leaveRequestId: leaveRequest.id,
+        action: 'SUBMITTED',
+        actorId: session.userId,
       }
     });
 
@@ -123,6 +131,14 @@ export async function getMyLeaves() {
             designation: true,
             department: true
           }
+        },
+        auditLogs: {
+          include: {
+            actor: {
+              select: { name: true }
+            }
+          },
+          orderBy: { createdAt: 'asc' }
         }
       },
       orderBy: { createdAt: 'desc' }
@@ -159,6 +175,14 @@ export async function acceptNegotiation(leaveId) {
         managerSuggestedFromDate: null,
         managerSuggestedToDate: null,
         status: 'PENDING'
+      }
+    });
+
+    await prisma.leaveAuditLog.create({
+      data: {
+        leaveRequestId: leaveId,
+        action: 'ACCEPTED_DATES',
+        actorId: session.userId,
       }
     });
 
@@ -234,11 +258,29 @@ export async function getManagerApprovals() {
           }
         },
         leaveType: true,
+        auditLogs: {
+          include: {
+            actor: {
+              select: { name: true }
+            }
+          },
+          orderBy: { createdAt: 'asc' }
+        }
       },
       orderBy: { createdAt: 'asc' }
     });
 
-    return { success: true, leaves };
+    // Attach approval chain to each leave
+    const { getApprovalChainForUser } = await import('./hierarchy');
+    const leavesWithChain = await Promise.all(leaves.map(async (leave) => {
+      const chainRes = await getApprovalChainForUser(leave.applicantId);
+      return {
+        ...leave,
+        approvalChain: chainRes.success ? chainRes.chain : []
+      };
+    }));
+
+    return { success: true, leaves: leavesWithChain };
   } catch (error) {
     console.error('Error fetching manager approvals:', error);
     return { error: 'Failed to fetch approvals.' };
@@ -316,6 +358,15 @@ export async function approveLeave(leaveId) {
       }
     }
 
+    await prisma.leaveAuditLog.create({
+      data: {
+        leaveRequestId: leaveId,
+        action: 'APPROVED',
+        actorId: session.userId,
+        nodeId: managerNode.id
+      }
+    });
+
     revalidatePath('/dashboard');
     return { success: true };
   } catch (error) {
@@ -329,9 +380,23 @@ export async function rejectLeave(leaveId) {
     const session = await getSession();
     if (!session?.userId) return { error: 'Not authenticated' };
 
+    const user = await prisma.user.findUnique({ where: { id: session.userId } });
+    const managerNode = await prisma.hierarchyNode.findUnique({
+      where: { departmentId_designationId: { departmentId: user.departmentId, designationId: user.designationId } }
+    });
+
     await prisma.leaveRequest.update({
       where: { id: leaveId },
       data: { status: 'REJECTED' }
+    });
+
+    await prisma.leaveAuditLog.create({
+      data: {
+        leaveRequestId: leaveId,
+        action: 'REJECTED',
+        actorId: session.userId,
+        nodeId: managerNode?.id
+      }
     });
 
     revalidatePath('/dashboard');
@@ -347,12 +412,26 @@ export async function proposeNewDates(leaveId, fromDate, toDate) {
     const session = await getSession();
     if (!session?.userId) return { error: 'Not authenticated' };
 
+    const user = await prisma.user.findUnique({ where: { id: session.userId } });
+    const managerNode = await prisma.hierarchyNode.findUnique({
+      where: { departmentId_designationId: { departmentId: user.departmentId, designationId: user.designationId } }
+    });
+
     await prisma.leaveRequest.update({
       where: { id: leaveId },
       data: { 
         status: 'NEGOTIATING',
         managerSuggestedFromDate: new Date(fromDate),
         managerSuggestedToDate: new Date(toDate)
+      }
+    });
+
+    await prisma.leaveAuditLog.create({
+      data: {
+        leaveRequestId: leaveId,
+        action: 'PROPOSED_DATES',
+        actorId: session.userId,
+        nodeId: managerNode?.id
       }
     });
 

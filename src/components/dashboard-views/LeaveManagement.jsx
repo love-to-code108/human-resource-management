@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { LeaveStatusTracker } from './LeaveStatusTracker';
 
 export function LeaveManagement() {
   const [leaves, setLeaves] = useState([]);
@@ -218,6 +219,12 @@ export function LeaveManagement() {
                       className="prose prose-sm dark:prose-invert max-w-none text-sm text-foreground/90"
                       dangerouslySetInnerHTML={{ __html: leave.reason }} 
                     />
+                  </div>
+
+                  {/* Status Tracker */}
+                  <div className="space-y-4 pt-2">
+                    <h4 className="font-medium text-sm border-b pb-2">Approval Status</h4>
+                    <LeaveStatusTracker leave={leave} approvalChain={leave.approvalChain} />
                   </div>
 
                   <div className="pt-4 mt-2 flex flex-wrap items-center justify-end gap-3 border-t border-border/50 border-dashed">
