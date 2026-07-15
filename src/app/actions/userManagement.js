@@ -180,3 +180,43 @@ export async function editUser(userId, data) {
     return { error: 'Failed to edit user. Check if email is already in use.' };
   }
 }
+
+export async function updateUserLeaveBalance(userId, leaveTypeId, newTotalDays) {
+  try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { error: 'Unauthorized. Admin access required.' };
+
+    const currentYear = new Date().getFullYear();
+
+    // Check if the balance already exists
+    const existingBalance = await prisma.leaveBalance.findFirst({
+      where: {
+        userId: userId,
+        leaveTypeId: leaveTypeId,
+        year: currentYear
+      }
+    });
+
+    if (existingBalance) {
+      await prisma.leaveBalance.update({
+        where: { id: existingBalance.id },
+        data: { totalDays: newTotalDays }
+      });
+    } else {
+      await prisma.leaveBalance.create({
+        data: {
+          userId: userId,
+          leaveTypeId: leaveTypeId,
+          year: currentYear,
+          totalDays: newTotalDays,
+          usedDays: 0
+        }
+      });
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating user leave balance:', error);
+    return { error: 'Failed to update user leave balance.' };
+  }
+}

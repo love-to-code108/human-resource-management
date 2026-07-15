@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getSubordinates, deleteUser, editUser } from '@/app/actions/userManagement';
+import { getSubordinates, deleteUser, editUser, updateUserLeaveBalance } from '@/app/actions/userManagement';
 import { getDepartments } from '@/app/actions/department';
 import { getDesignations } from '@/app/actions/designation';
 import { Loader2, Users, Search, ChevronRight, Briefcase, Building2, Calendar, Trash2, Edit2 } from 'lucide-react';
@@ -69,6 +69,9 @@ export function UserManagement() {
     departmentId: '',
     designationId: ''
   });
+
+  const [isAdjustLeaveDialogOpen, setIsAdjustLeaveDialogOpen] = useState(false);
+  const [adjustLeaveData, setAdjustLeaveData] = useState({ balanceId: null, leaveTypeId: null, leaveTypeName: '', currentTotal: 0, newTotal: 0 });
 
   useEffect(() => {
     loadUsers();
@@ -184,6 +187,40 @@ export function UserManagement() {
       loadUsers();
     } else {
       toast.error(res.error || 'Failed to update user');
+      setIsLoading(false);
+    }
+  };
+
+  const openAdjustLeave = (balance) => {
+    setAdjustLeaveData({
+      balanceId: balance.id,
+      leaveTypeId: balance.leaveType.id,
+      leaveTypeName: balance.leaveType.name,
+      currentTotal: balance.totalDays,
+      newTotal: balance.totalDays
+    });
+    setIsAdjustLeaveDialogOpen(true);
+  };
+
+  const handleAdjustLeaveSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    const res = await updateUserLeaveBalance(selectedUser.id, adjustLeaveData.leaveTypeId, parseInt(adjustLeaveData.newTotal));
+    if (res.success) {
+      toast.success('Leave balance updated successfully');
+      setIsAdjustLeaveDialogOpen(false);
+      
+      setSelectedUser(prev => ({
+        ...prev,
+        leaveBalances: prev.leaveBalances.map(b => 
+          b.id === adjustLeaveData.balanceId 
+            ? { ...b, totalDays: parseInt(adjustLeaveData.newTotal) } 
+            : b
+        )
+      }));
+      loadUsers();
+    } else {
+      toast.error(res.error || 'Failed to update leave balance');
       setIsLoading(false);
     }
   };
@@ -384,9 +421,22 @@ export function UserManagement() {
                               <div>
                                 <span className="font-medium text-sm block">{balance.leaveType.name}</span>
                                 <span className="text-xs text-muted-foreground mt-0.5 block">{balance.usedDays} used out of {balance.totalDays}</span>
-                              </div>
-                              <div className="text-right shrink-0">
-                                <span className="text-2xl font-semibold tracking-tight text-foreground">{remaining}</span>
+                                </div>
+                              <div className="text-right shrink-0 flex items-center gap-4">
+                                <div className="text-right">
+                                  <span className="text-2xl font-semibold tracking-tight text-foreground">{remaining}</span>
+                                </div>
+                                {isAdmin && (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                    onClick={() => openAdjustLeave(balance)}
+                                    title="Adjust Leave Balance"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           );
@@ -465,6 +515,38 @@ export function UserManagement() {
               </div>
               <div className="pt-2 flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                <Button type="submit">Save Changes</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Adjust Leave Dialog */}
+        <Dialog open={isAdjustLeaveDialogOpen} onOpenChange={setIsAdjustLeaveDialogOpen}>
+          <DialogContent className="sm:max-w-[400px] border-border/50 shadow-md bg-card dark:bg-zinc-900/90 backdrop-blur-sm">
+            <DialogHeader>
+              <DialogTitle>Adjust Leave Balance</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleAdjustLeaveSubmit} className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Leave Type</label>
+                <div className="text-sm p-2 bg-muted rounded-md">{adjustLeaveData.leaveTypeName}</div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Total Allocated Days</label>
+                <Input 
+                  type="number" 
+                  min="0"
+                  value={adjustLeaveData.newTotal} 
+                  onChange={(e) => setAdjustLeaveData({...adjustLeaveData, newTotal: e.target.value})} 
+                  required 
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Increase this value to grant extra leaves (e.g., for overtime).
+                </p>
+              </div>
+              <div className="pt-2 flex justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={() => setIsAdjustLeaveDialogOpen(false)}>Cancel</Button>
                 <Button type="submit">Save Changes</Button>
               </div>
             </form>
