@@ -129,7 +129,11 @@ export function TeamLeaveArchive() {
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
             <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
               <SelectTrigger className="w-full sm:w-[200px] bg-background">
-                <SelectValue placeholder="All Employees" />
+                <SelectValue>
+                  {employeeFilter === 'ALL' 
+                    ? 'All Employees' 
+                    : (uniqueEmployees.find(e => e.id === employeeFilter)?.name || 'All Employees')}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All Employees</SelectItem>
@@ -141,7 +145,13 @@ export function TeamLeaveArchive() {
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-[160px] bg-background">
-                <SelectValue placeholder="All Statuses" />
+                <SelectValue>
+                  {statusFilter === 'ALL' ? 'All Statuses' : 
+                   statusFilter === 'APPROVED' ? 'Approved' :
+                   statusFilter === 'PENDING' ? 'Pending' :
+                   statusFilter === 'REJECTED' ? 'Rejected' :
+                   statusFilter === 'NEGOTIATING' ? 'Negotiating' : 'All Statuses'}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All Statuses</SelectItem>
