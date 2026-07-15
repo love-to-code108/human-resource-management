@@ -228,51 +228,58 @@ export async function getTeamLeaveHistory() {
     const session = await getSession();
     if (!session?.userId) return { error: 'Not authenticated' };
 
-    const user = await prisma.user.findUnique({ where: { id: session.userId } });
-    if (!user?.departmentId || !user?.designationId) {
-      return { success: true, leaves: [] };
-    }
+    let subIds = [];
+    
+    if (session.isAdmin) {
+      const allUsers = await prisma.user.findMany({ select: { id: true } });
+      subIds = allUsers.map(u => u.id);
+    } else {
+      const user = await prisma.user.findUnique({ where: { id: session.userId } });
+      if (!user?.departmentId || !user?.designationId) {
+        return { success: true, leaves: [] };
+      }
 
-    const managerNode = await prisma.hierarchyNode.findUnique({
-      where: {
-        departmentId_designationId: {
-          departmentId: user.departmentId,
-          designationId: user.designationId
+      const managerNode = await prisma.hierarchyNode.findUnique({
+        where: {
+          departmentId_designationId: {
+            departmentId: user.departmentId,
+            designationId: user.designationId
+          }
+        }
+      });
+
+      if (!managerNode) return { success: true, leaves: [] };
+
+      const allNodes = await prisma.hierarchyNode.findMany({
+        include: { parents: true }
+      });
+      
+      const descendantNodes = [];
+      let queue = [managerNode.id];
+      while (queue.length > 0) {
+        const currentId = queue.shift();
+        const children = allNodes.filter(n => n.parents?.some(p => p.id === currentId));
+        for (const child of children) {
+          descendantNodes.push(child);
+          queue.push(child.id);
         }
       }
-    });
 
-    if (!managerNode) return { success: true, leaves: [] };
-
-    const allNodes = await prisma.hierarchyNode.findMany({
-      include: { parents: true }
-    });
-    
-    const descendantNodes = [];
-    let queue = [managerNode.id];
-    while (queue.length > 0) {
-      const currentId = queue.shift();
-      const children = allNodes.filter(n => n.parents?.some(p => p.id === currentId));
-      for (const child of children) {
-        descendantNodes.push(child);
-        queue.push(child.id);
+      if (descendantNodes.length === 0) {
+        return { success: true, leaves: [] };
       }
+
+      const OR_conditions = descendantNodes.map(node => ({
+        departmentId: node.departmentId,
+        designationId: node.designationId
+      }));
+
+      const subordinateUsers = await prisma.user.findMany({
+        where: { OR: OR_conditions },
+        select: { id: true }
+      });
+      subIds = subordinateUsers.map(u => u.id);
     }
-
-    if (descendantNodes.length === 0) {
-      return { success: true, leaves: [] };
-    }
-
-    const OR_conditions = descendantNodes.map(node => ({
-      departmentId: node.departmentId,
-      designationId: node.designationId
-    }));
-
-    const subordinateUsers = await prisma.user.findMany({
-      where: { OR: OR_conditions },
-      select: { id: true }
-    });
-    const subIds = subordinateUsers.map(u => u.id);
 
     if (subIds.length === 0) {
       return { success: true, leaves: [] };
