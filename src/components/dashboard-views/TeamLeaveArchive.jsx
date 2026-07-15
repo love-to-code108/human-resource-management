@@ -169,43 +169,43 @@ export function TeamLeaveArchive() {
               <p className="text-muted-foreground">Try adjusting your filters or search query.</p>
             </div>
           ) : (
-            <div className="border border-border/50 rounded-md overflow-hidden bg-card shadow-sm">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30">
-                    <TableHead className="w-[250px]">Applicant</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Dates</TableHead>
-                    <TableHead>Applied On</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredLeaves.map((leave) => (
-                    <TableRow 
-                      key={leave.id} 
-                      className="cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => openLeaveDetails(leave)}
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8 border">
-                            {leave.applicant.avatar ? (
-                              <AvatarImage src={leave.applicant.avatar} alt={leave.applicant.name} />
-                            ) : (
-                              <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                                {leave.applicant.name.charAt(0).toUpperCase()}
-                              </AvatarFallback>
-                            )}
-                          </Avatar>
-                          <div className="flex flex-col">
-                            <span className="font-medium text-sm">{leave.applicant.name}</span>
-                          </div>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b border-border/50 hover:bg-transparent">
+                  <TableHead className="w-[300px] text-xs uppercase tracking-wider font-semibold text-muted-foreground">Applicant</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Type</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Dates</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Applied On</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredLeaves.map((leave) => (
+                  <TableRow 
+                    key={leave.id} 
+                    className="cursor-pointer hover:bg-muted/30 transition-colors"
+                    onClick={() => openLeaveDetails(leave)}
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9 border">
+                          {leave.applicant.avatar ? (
+                            <AvatarImage src={leave.applicant.avatar} alt={leave.applicant.name} />
+                          ) : (
+                            <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
+                              {leave.applicant.name.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          )}
+                        </Avatar>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-foreground">{leave.applicant.name}</span>
+                          <span className="text-xs text-muted-foreground">{leave.applicant.email}</span>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-medium">{leave.leaveType.name}</span>
-                      </TableCell>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground">{leave.leaveType.name}</span>
+                    </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <span>{format(new Date(leave.fromDate), 'MMM d')}</span>
@@ -223,7 +223,6 @@ export function TeamLeaveArchive() {
                   ))}
                 </TableBody>
               </Table>
-            </div>
           )}
         </div>
 
