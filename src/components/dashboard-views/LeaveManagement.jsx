@@ -179,7 +179,7 @@ export function LeaveManagement() {
                       </div>
                     </div>
                     <div className="sm:text-right">
-                      <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-background text-muted-foreground">
+                      <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
                         {leave.leaveType.name}
                       </span>
                       <p className="text-xs text-muted-foreground mt-2">
@@ -188,19 +188,27 @@ export function LeaveManagement() {
                     </div>
                   </div>
 
-                  {/* Requested Dates */}
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-2">Requested Dates</h4>
-                    <div className="flex items-center gap-2 text-base">
-                      <Calendar className="w-4 h-4 text-primary" />
-                      <span className="font-medium">{format(new Date(leave.fromDate), 'MMM d, yyyy')}</span>
-                      <ArrowRight className="w-4 h-4 text-muted-foreground mx-2" />
-                      <Calendar className="w-4 h-4 text-primary" />
-                      <span className="font-medium">{format(new Date(leave.toDate), 'MMM d, yyyy')}</span>
+                  <div className="space-y-6">
+                    {/* Requested Dates */}
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Requested Dates</h4>
+                      <div className="flex items-center gap-2 text-base">
+                        <Calendar className="w-4 h-4 text-primary" />
+                        <span className="font-medium">{format(new Date(leave.fromDate), 'MMM d, yyyy')}</span>
+                        <ArrowRight className="w-4 h-4 text-muted-foreground mx-2" />
+                        <Calendar className="w-4 h-4 text-primary" />
+                        <span className="font-medium">{format(new Date(leave.toDate), 'MMM d, yyyy')}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        {Math.ceil((new Date(leave.toDate) - new Date(leave.fromDate)) / (1000 * 60 * 60 * 24)) + 1} Days Requested
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {Math.ceil((new Date(leave.toDate) - new Date(leave.fromDate)) / (1000 * 60 * 60 * 24)) + 1} Days Requested
-                    </p>
+
+                    {/* Subject */}
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Subject</h4>
+                      <p className="text-base font-semibold">{leave.subject || 'N/A'}</p>
+                    </div>
                   </div>
 
                   {/* Reason */}
@@ -232,6 +240,7 @@ export function LeaveManagement() {
                     <Button 
                       onClick={() => setApproveConfirmId(leave.id)}
                       disabled={processingId === leave.id}
+                      className="bg-emerald-700 hover:bg-emerald-800 text-white"
                     >
                       {processingId === leave.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
                       Approve

@@ -6,6 +6,7 @@ import { getApprovalChainForUser } from '@/app/actions/hierarchy';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -14,6 +15,7 @@ import { Loader2, Send, CalendarIcon, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { RichTextEditor } from '@/components/ui/RichTextEditor';
 import { format } from 'date-fns';
+import { useDashboardStore } from '@/store/dashboardStore';
 import { cn } from '@/lib/utils';
 
 export function NewLeaveApplication() {
@@ -24,10 +26,13 @@ export function NewLeaveApplication() {
   const [selectedLeaveTypeName, setSelectedLeaveTypeName] = useState('');
   const [fromDate, setFromDate] = useState();
   const [toDate, setToDate] = useState();
+  const [subject, setSubject] = useState('');
   const [reason, setReason] = useState('');
 
   const [approvalChain, setApprovalChain] = useState([]);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+
+  const setActiveView = useDashboardStore((state) => state.setActiveView);
 
   useEffect(() => {
     async function loadData() {
@@ -53,8 +58,8 @@ export function NewLeaveApplication() {
 
   const handlePreSubmit = (e) => {
     e.preventDefault();
-    if (!selectedLeaveTypeName || !fromDate || !toDate || !reason) {
-      toast.error("Please fill in all fields and provide a reason.");
+    if (!selectedLeaveTypeName || !fromDate || !toDate || !subject || !reason) {
+      toast.error("Please fill in all fields and provide a subject and reason.");
       return;
     }
     setIsConfirmDialogOpen(true);
@@ -72,6 +77,7 @@ export function NewLeaveApplication() {
       leaveTypeId: typeId,
       fromDate: fromDate ? format(fromDate, 'yyyy-MM-dd') : '',
       toDate: toDate ? format(toDate, 'yyyy-MM-dd') : '',
+      subject,
       reason,
     });
 
@@ -82,16 +88,7 @@ export function NewLeaveApplication() {
     } else {
       toast.success("Leave application submitted successfully!");
       setIsConfirmDialogOpen(false);
-      setSelectedLeaveTypeName('');
-      setFromDate(undefined);
-      setToDate(undefined);
-      setReason('');
-      
-      // refresh balances so remaining logic stays true
-      const balRes = await getMyLeaveBalances();
-      if (balRes.success) {
-        setLeaveBalances(balRes.balances || []);
-      }
+      setActiveView('my-status');
     }
   };
 
@@ -230,24 +227,25 @@ export function NewLeaveApplication() {
           <div className="border-b border-border" />
 
           {/* Section 3: Justification */}
-          <div className="space-y-8">
-            <div>
-              <h3 className="text-lg font-medium">3. Justification</h3>
-              <p className="text-sm text-muted-foreground">
-                Provide a detailed reason for your leave request.
-              </p>
-            </div>
+          <div className="space-y-6 pt-4">
+            <h3 className="text-lg font-medium text-foreground">3. Reason for Leave</h3>
             
-            <div className="grid gap-2">
-              <Label>Reason for Leave</Label>
-              <RichTextEditor
-                content={reason}
-                onChange={setReason}
-                placeholder="Explain the reason for your leave..."
+            <div className="grid gap-2 max-w-2xl">
+              <Label>Subject</Label>
+              <Input 
+                value={subject} 
+                onChange={(e) => setSubject(e.target.value)} 
+                placeholder="Brief subject of your leave (e.g., Sick Leave for Viral Fever)" 
               />
-              <p className="text-sm text-muted-foreground">
-                Use the rich text editor to format your reason.
-              </p>
+            </div>
+
+            <div className="grid gap-2 max-w-3xl">
+              <Label>Detailed Justification</Label>
+              <RichTextEditor 
+                content={reason} 
+                onChange={setReason}
+                placeholder="Provide a detailed reason for your leave application..."
+              />
             </div>
           </div>
 
@@ -271,9 +269,13 @@ export function NewLeaveApplication() {
 
             <div className="grid gap-6 py-4">
               <div className="grid grid-cols-2 gap-4 text-sm bg-muted/30 p-4 rounded-lg border">
-                <div>
+                <div className="col-span-2">
                   <span className="text-muted-foreground block mb-1 text-xs uppercase tracking-wider font-semibold">Leave Type</span>
-                  <span className="font-medium text-foreground">{selectedLeaveTypeName}</span>
+                  <Badge variant="default" className="text-sm px-3 py-1 bg-primary/90 text-primary-foreground shadow-sm">{selectedLeaveTypeName}</Badge>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-muted-foreground block mb-1 text-xs uppercase tracking-wider font-semibold">Subject</span>
+                  <span className="font-medium text-foreground">{subject}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground block mb-1 text-xs uppercase tracking-wider font-semibold">Requested Dates</span>

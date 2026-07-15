@@ -46,6 +46,7 @@ export function MyApplicationsStatus() {
   const [editData, setEditData] = useState(null);
   const [newFromDate, setNewFromDate] = useState();
   const [newToDate, setNewToDate] = useState();
+  const [newSubject, setNewSubject] = useState('');
   const [newReason, setNewReason] = useState('');
 
   useEffect(() => {
@@ -105,13 +106,14 @@ export function MyApplicationsStatus() {
     setEditData(leave);
     setNewFromDate(new Date(leave.fromDate));
     setNewToDate(new Date(leave.toDate));
+    setNewSubject(leave.subject || '');
     setNewReason(leave.reason);
     setIsEditDialogOpen(true);
   };
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
-    if (!newFromDate || !newToDate || !newReason) {
+    if (!newFromDate || !newToDate || !newSubject || !newReason) {
       toast.error('All fields are required.');
       return;
     }
@@ -120,6 +122,7 @@ export function MyApplicationsStatus() {
     const res = await editLeaveApplication(editData.id, {
       fromDate: format(newFromDate, 'yyyy-MM-dd'),
       toDate: format(newToDate, 'yyyy-MM-dd'),
+      subject: newSubject,
       reason: newReason
     });
     
@@ -194,52 +197,38 @@ export function MyApplicationsStatus() {
                       </p>
                     </div>
                     <div className="sm:text-right">
-                      <p className="text-sm font-medium text-muted-foreground">Status Tracker</p>
-                      <div className="flex items-center gap-2 overflow-x-auto pb-2 pt-2 max-w-[300px] sm:max-w-md">
-                        {approvalChain.map((level, i) => {
-                          const pendingIds = leave.pendingAtNodes.map(n => n.id);
-                          const currentLevelIndex = approvalChain.findIndex(lvl => lvl.some(node => pendingIds.includes(node.id)));
-                          
-                          let state = 'pending';
-                          if (leave.status === 'APPROVED') state = 'approved';
-                          else if (leave.status === 'REJECTED' && currentLevelIndex === i) state = 'rejected';
-                          else if (leave.status === 'REJECTED' && currentLevelIndex === -1 && i === approvalChain.length - 1) state = 'rejected'; // fallback
-                          else if (currentLevelIndex !== -1) {
-                            if (i < currentLevelIndex) state = 'approved';
-                            else if (i === currentLevelIndex) state = 'current';
-                          } else if (leave.status === 'REJECTED') {
-                             state = 'pending'; // don't highlight if we don't know
-                          }
-
-                          return (
-                            <div key={i} className="flex items-center gap-2 shrink-0">
-                              <Badge 
-                                variant={state === 'approved' ? 'default' : state === 'current' ? 'outline' : state === 'rejected' ? 'destructive' : 'secondary'}
-                                className={state === 'current' ? 'border-primary text-primary bg-primary/5' : ''}
-                              >
-                                {level.map(n => n.designation.name).join(' OR ')}
-                              </Badge>
-                              {i < approvalChain.length - 1 && <ArrowRight className="w-3 h-3 text-muted-foreground" />}
-                            </div>
-                          )
-                        })}
-                      </div>
+                      <p className="text-sm font-medium text-muted-foreground">Pending At</p>
+                      <p className="text-sm font-medium">
+                        {leave.status === 'APPROVED' ? (
+                          <span className="text-emerald-600">Fully Approved</span>
+                        ) : leave.pendingAtNodes && leave.pendingAtNodes.length > 0 ? (
+                          leave.pendingAtNodes.map(node => `${node.designation.name}, ${node.department.name}`).join(' OR ')
+                        ) : 'System'}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Requested Dates */}
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-2">Requested Dates</h4>
-                    <div className="flex items-center gap-2 text-base">
-                      <Calendar className="w-4 h-4 text-primary" />
-                      <span className={leave.status === 'NEGOTIATING' ? 'line-through opacity-60' : 'font-medium'}>
-                        {format(new Date(leave.fromDate), 'MMM d, yyyy')}
-                      </span>
-                      <ArrowRight className="w-4 h-4 text-muted-foreground mx-2" />
-                      <Calendar className="w-4 h-4 text-primary" />
-                      <span className={leave.status === 'NEGOTIATING' ? 'line-through opacity-60' : 'font-medium'}>
-                        {format(new Date(leave.toDate), 'MMM d, yyyy')}
-                      </span>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {/* Requested Dates */}
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Requested Dates</h4>
+                      <div className="flex items-center gap-2 text-base">
+                        <Calendar className="w-4 h-4 text-primary" />
+                        <span className={leave.status === 'NEGOTIATING' ? 'line-through opacity-60' : 'font-medium'}>
+                          {format(new Date(leave.fromDate), 'MMM d, yyyy')}
+                        </span>
+                        <ArrowRight className="w-4 h-4 text-muted-foreground mx-2" />
+                        <Calendar className="w-4 h-4 text-primary" />
+                        <span className={leave.status === 'NEGOTIATING' ? 'line-through opacity-60' : 'font-medium'}>
+                          {format(new Date(leave.toDate), 'MMM d, yyyy')}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Subject */}
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Subject</h4>
+                      <p className="text-base font-semibold">{leave.subject || 'N/A'}</p>
                     </div>
                   </div>
 
@@ -262,11 +251,59 @@ export function MyApplicationsStatus() {
 
                   {/* Reason */}
                   <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-muted-foreground">Justification</h4>
+                    <h4 className="text-sm font-medium text-muted-foreground">Detailed Justification</h4>
                     <div 
-                      className="prose prose-sm dark:prose-invert max-w-none text-sm text-foreground/90"
+                      className="prose prose-sm dark:prose-invert max-w-none text-sm text-foreground/90 bg-muted/20 p-4 rounded-lg border border-border/50"
                       dangerouslySetInnerHTML={{ __html: leave.reason }} 
                     />
+                  </div>
+
+                  {/* Status Tracker */}
+                  <div className="space-y-4 pt-2">
+                    <h4 className="font-medium text-sm border-b pb-2">Status Tracker</h4>
+                    {approvalChain.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No approvals required. (Auto-approve)</p>
+                    ) : (
+                      <div className="relative pl-4 space-y-6 before:absolute before:left-[21px] before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
+                        {approvalChain.map((level, i) => {
+                          const pendingIds = leave.pendingAtNodes.map(n => n.id);
+                          const currentLevelIndex = approvalChain.findIndex(lvl => lvl.some(node => pendingIds.includes(node.id)));
+                          
+                          let state = 'pending';
+                          if (leave.status === 'APPROVED') state = 'approved';
+                          else if (leave.status === 'REJECTED' && currentLevelIndex === i) state = 'rejected';
+                          else if (leave.status === 'REJECTED' && currentLevelIndex === -1 && i === approvalChain.length - 1) state = 'rejected';
+                          else if (currentLevelIndex !== -1) {
+                            if (i < currentLevelIndex) state = 'approved';
+                            else if (i === currentLevelIndex) state = 'current';
+                          }
+
+                          return (
+                            <div key={i} className="relative flex items-start gap-4">
+                              <div className={cn(
+                                "relative z-10 w-3 h-3 mt-1.5 rounded-full ring-4 ring-background",
+                                state === 'approved' ? "bg-emerald-500" : state === 'current' ? "bg-primary animate-pulse" : state === 'rejected' ? "bg-destructive" : "bg-muted-foreground/30"
+                              )} />
+                              <div className="flex flex-col">
+                                <span className={cn(
+                                  "text-xs font-semibold uppercase tracking-wider mb-1",
+                                  state === 'approved' ? "text-emerald-600" : state === 'current' ? "text-primary" : state === 'rejected' ? "text-destructive" : "text-muted-foreground"
+                                )}>
+                                  Level {i + 1} {state === 'approved' && '- Approved'} {state === 'rejected' && '- Rejected'} {state === 'current' && '- Pending'}
+                                </span>
+                                <div className="space-y-1">
+                                  {level.map((node, j) => (
+                                    <div key={j} className={cn("text-sm", state === 'pending' ? "text-muted-foreground" : "font-medium")}>
+                                      {node.designation.name} <span className="font-normal opacity-70">({node.department.name})</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   {/* Actions */}
@@ -424,7 +461,16 @@ export function MyApplicationsStatus() {
             </div>
 
             <div className="grid gap-2">
-              <Label>Justification</Label>
+              <Label>Subject</Label>
+              <Input 
+                value={newSubject}
+                onChange={(e) => setNewSubject(e.target.value)}
+                placeholder="Brief subject of your leave"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Detailed Justification</Label>
               <RichTextEditor
                 content={newReason}
                 onChange={setNewReason}

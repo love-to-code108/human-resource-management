@@ -121,6 +121,7 @@ model LeaveRequest {
   leaveTypeId     String
   fromDate        DateTime
   toDate          DateTime
+  subject         String?
   reason          String        // Will store rich text HTML/JSON from Novel editor
   status          RequestStatus @default(PENDING)
   

@@ -11,9 +11,9 @@ export async function submitLeaveApplication(data) {
       return { error: 'Not authenticated' };
     }
 
-    const { leaveTypeId, fromDate, toDate, reason } = data;
+    const { leaveTypeId, fromDate, toDate, subject, reason } = data;
 
-    if (!leaveTypeId || !fromDate || !toDate || !reason) {
+    if (!leaveTypeId || !fromDate || !toDate || !subject || !reason) {
       return { error: 'All fields are required.' };
     }
 
@@ -91,6 +91,7 @@ export async function submitLeaveApplication(data) {
         leaveTypeId,
         fromDate: startDate,
         toDate: endDate,
+        subject,
         reason,
         status,
         pendingAtNodes: parents && parents.length > 0 ? {
@@ -391,8 +392,8 @@ export async function editLeaveApplication(leaveId, data) {
     const session = await getSession();
     if (!session?.userId) return { error: 'Not authenticated' };
 
-    const { fromDate, toDate, reason } = data;
-    if (!fromDate || !toDate || !reason) return { error: 'All fields are required.' };
+    const { fromDate, toDate, subject, reason } = data;
+    if (!fromDate || !toDate || !subject || !reason) return { error: 'All fields are required.' };
 
     const startDate = new Date(fromDate);
     const endDate = new Date(toDate);
@@ -413,6 +414,7 @@ export async function editLeaveApplication(leaveId, data) {
       data: {
         fromDate: startDate,
         toDate: endDate,
+        subject,
         reason
       }
     });
