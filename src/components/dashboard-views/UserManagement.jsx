@@ -283,28 +283,33 @@ export function UserManagement() {
                   <TableRow key={user.id} className="hover:bg-muted/30">
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9 border">
+                        <Avatar className="h-9 w-9 border cursor-pointer" onClick={() => openDetails(user)}>
                           {user.avatar && <AvatarImage src={user.avatar} alt={user.name} />}
                           <AvatarFallback className="bg-primary text-primary-foreground font-bold text-sm">
                             {user.name.substring(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col">
-                          <span className="font-medium">{user.name}</span>
+                          <span 
+                            className="font-medium cursor-pointer hover:underline text-foreground" 
+                            onClick={() => openDetails(user)}
+                          >
+                            {user.name}
+                          </span>
                           <span className="text-xs text-muted-foreground">{user.email}</span>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Briefcase className="w-4 h-4" />
-                        {user.designation?.name || 'Unassigned'}
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground max-w-[200px] whitespace-normal break-words">
+                        <Briefcase className="w-4 h-4 shrink-0" />
+                        <span>{user.designation?.name || 'Unassigned'}</span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Building2 className="w-4 h-4" />
-                        {user.department?.name || 'Unassigned'}
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground max-w-[200px] whitespace-normal break-words">
+                        <Building2 className="w-4 h-4 shrink-0" />
+                        <span>{user.department?.name || 'Unassigned'}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
@@ -319,10 +324,6 @@ export function UserManagement() {
                             </Button>
                           </>
                         )}
-                        <Button variant="ghost" size="sm" onClick={() => openDetails(user)} className="text-muted-foreground hover:text-foreground hover:bg-transparent">
-                          View Details
-                          <ChevronRight className="w-4 h-4 ml-1" />
-                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
