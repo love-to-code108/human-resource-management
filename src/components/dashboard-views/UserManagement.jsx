@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getSubordinates, deleteUser, editUser } from '@/app/actions/userManagement';
+import { getSubordinates, deleteUser, editUser, updateUserLeaveBalance } from '@/app/actions/userManagement';
 import { getDepartments } from '@/app/actions/department';
 import { getDesignations } from '@/app/actions/designation';
 import { Loader2, Users, Search, ChevronRight, Briefcase, Building2, Calendar, Trash2, Edit2 } from 'lucide-react';
@@ -39,7 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 
 export function UserManagement() {
@@ -69,6 +69,9 @@ export function UserManagement() {
     departmentId: '',
     designationId: ''
   });
+
+  const [isAdjustLeaveDialogOpen, setIsAdjustLeaveDialogOpen] = useState(false);
+  const [adjustLeaveData, setAdjustLeaveData] = useState({ balanceId: null, leaveTypeId: null, leaveTypeName: '', currentTotal: 0, newTotal: 0 });
 
   useEffect(() => {
     loadUsers();
@@ -188,6 +191,40 @@ export function UserManagement() {
     }
   };
 
+  const openAdjustLeave = (balance) => {
+    setAdjustLeaveData({
+      balanceId: balance.id,
+      leaveTypeId: balance.leaveType.id,
+      leaveTypeName: balance.leaveType.name,
+      currentTotal: balance.totalDays,
+      newTotal: balance.totalDays
+    });
+    setIsAdjustLeaveDialogOpen(true);
+  };
+
+  const handleAdjustLeaveSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    const res = await updateUserLeaveBalance(selectedUser.id, adjustLeaveData.leaveTypeId, parseInt(adjustLeaveData.newTotal));
+    if (res.success) {
+      toast.success('Leave balance updated successfully');
+      setIsAdjustLeaveDialogOpen(false);
+      
+      setSelectedUser(prev => ({
+        ...prev,
+        leaveBalances: prev.leaveBalances.map(b => 
+          b.id === adjustLeaveData.balanceId 
+            ? { ...b, totalDays: parseInt(adjustLeaveData.newTotal) } 
+            : b
+        )
+      }));
+      loadUsers();
+    } else {
+      toast.error(res.error || 'Failed to update leave balance');
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="flex-1 p-6 lg:p-10 animate-in fade-in duration-500 h-full overflow-y-auto">
       <div className="max-w-4xl mx-auto space-y-8 pt-4 pb-16">
@@ -275,7 +312,7 @@ export function UserManagement() {
                   <TableHead className="w-[300px] text-xs uppercase tracking-wider font-semibold text-muted-foreground">Employee</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Designation</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Department</TableHead>
-                  <TableHead className="text-right text-xs uppercase tracking-wider font-semibold text-muted-foreground">Action</TableHead>
+                  {isAdmin && <TableHead className="text-right text-xs uppercase tracking-wider font-semibold text-muted-foreground">Action</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -283,47 +320,51 @@ export function UserManagement() {
                   <TableRow key={user.id} className="hover:bg-muted/30">
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9 border">
+                        <Avatar className="h-9 w-9 border cursor-pointer" onClick={() => openDetails(user)}>
+                          {user.avatar && <AvatarImage src={user.avatar} alt={user.name} />}
                           <AvatarFallback className="bg-primary text-primary-foreground font-bold text-sm">
                             {user.name.substring(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col">
-                          <span className="font-medium">{user.name}</span>
+                          <span 
+                            className="font-medium cursor-pointer hover:underline text-foreground" 
+                            onClick={() => openDetails(user)}
+                          >
+                            {user.name}
+                          </span>
                           <span className="text-xs text-muted-foreground">{user.email}</span>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Briefcase className="w-4 h-4" />
-                        {user.designation?.name || 'Unassigned'}
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground max-w-[200px] whitespace-normal break-words">
+                        <Briefcase className="w-4 h-4 shrink-0" />
+                        <span>{user.designation?.name || 'Unassigned'}</span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Building2 className="w-4 h-4" />
-                        {user.department?.name || 'Unassigned'}
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground max-w-[200px] whitespace-normal break-words">
+                        <Building2 className="w-4 h-4 shrink-0" />
+                        <span>{user.department?.name || 'Unassigned'}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {isAdmin && !user.isAdmin && (
-                          <>
-                            <Button variant="ghost" size="icon" onClick={() => openEdit(user)} className="text-muted-foreground hover:text-foreground hover:bg-transparent" title="Edit User">
-                              <Edit2 className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => initiateDelete(user)} className="text-muted-foreground hover:text-destructive hover:bg-transparent" title="Delete User">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </>
-                        )}
-                        <Button variant="ghost" size="sm" onClick={() => openDetails(user)} className="text-muted-foreground hover:text-foreground hover:bg-transparent">
-                          View Details
-                          <ChevronRight className="w-4 h-4 ml-1" />
-                        </Button>
-                      </div>
-                    </TableCell>
+                    {isAdmin && (
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {!user.isAdmin && (
+                            <>
+                              <Button variant="ghost" size="icon" onClick={() => openEdit(user)} className="text-muted-foreground hover:text-foreground hover:bg-transparent" title="Edit User">
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => initiateDelete(user)} className="text-muted-foreground hover:text-destructive hover:bg-transparent" title="Delete User">
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -339,6 +380,7 @@ export function UserManagement() {
                 <DialogHeader className="pb-4 border-b">
                   <DialogTitle className="flex items-center gap-4">
                     <Avatar className="h-12 w-12 border">
+                      {selectedUser.avatar && <AvatarImage src={selectedUser.avatar} alt={selectedUser.name} />}
                       <AvatarFallback className="bg-primary text-primary-foreground font-bold text-lg">
                         {selectedUser.name.substring(0, 2).toUpperCase()}
                       </AvatarFallback>
@@ -381,9 +423,22 @@ export function UserManagement() {
                               <div>
                                 <span className="font-medium text-sm block">{balance.leaveType.name}</span>
                                 <span className="text-xs text-muted-foreground mt-0.5 block">{balance.usedDays} used out of {balance.totalDays}</span>
-                              </div>
-                              <div className="text-right shrink-0">
-                                <span className="text-2xl font-semibold tracking-tight text-foreground">{remaining}</span>
+                                </div>
+                              <div className="text-right shrink-0 flex items-center gap-4">
+                                <div className="text-right">
+                                  <span className="text-2xl font-semibold tracking-tight text-foreground">{remaining}</span>
+                                </div>
+                                {isAdmin && (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                    onClick={() => openAdjustLeave(balance)}
+                                    title="Adjust Leave Balance"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           );
@@ -462,6 +517,38 @@ export function UserManagement() {
               </div>
               <div className="pt-2 flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                <Button type="submit">Save Changes</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Adjust Leave Dialog */}
+        <Dialog open={isAdjustLeaveDialogOpen} onOpenChange={setIsAdjustLeaveDialogOpen}>
+          <DialogContent className="sm:max-w-[400px] border-border/50 shadow-md bg-card dark:bg-zinc-900/90 backdrop-blur-sm">
+            <DialogHeader>
+              <DialogTitle>Adjust Leave Balance</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleAdjustLeaveSubmit} className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Leave Type</label>
+                <div className="text-sm p-2 bg-muted rounded-md">{adjustLeaveData.leaveTypeName}</div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Total Allocated Days</label>
+                <Input 
+                  type="number" 
+                  min="0"
+                  value={adjustLeaveData.newTotal} 
+                  onChange={(e) => setAdjustLeaveData({...adjustLeaveData, newTotal: e.target.value})} 
+                  required 
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Increase this value to grant extra leaves (e.g., for overtime).
+                </p>
+              </div>
+              <div className="pt-2 flex justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={() => setIsAdjustLeaveDialogOpen(false)}>Cancel</Button>
                 <Button type="submit">Save Changes</Button>
               </div>
             </form>

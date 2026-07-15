@@ -10,6 +10,7 @@ export async function getHierarchyNodes() {
       include: {
         department: true,
         designation: true,
+        parents: true,
       },
     });
     return { success: true, data: nodes };
@@ -63,16 +64,17 @@ export async function updateHierarchyConnection(nodeId, parentId) {
     const session = await getSession();
     if (!session?.isAdmin) return { error: 'Unauthorized. Admin access required.' };
 
-    // Prevent self-reference
     if (nodeId === parentId) {
       return { error: 'A node cannot report to itself.' };
     }
 
-    // Optional: add a cyclic dependency check here if needed in the future
-    
     await prisma.hierarchyNode.update({
       where: { id: nodeId },
-      data: { parentId: parentId || null }, // null disconnects it
+      data: {
+        parents: {
+          connect: { id: parentId }
+        }
+      },
     });
 
     revalidatePath('/dashboard');
@@ -80,6 +82,28 @@ export async function updateHierarchyConnection(nodeId, parentId) {
   } catch (error) {
     console.error('Error updating hierarchy connection:', error);
     return { error: 'Failed to update hierarchy connection' };
+  }
+}
+
+export async function disconnectHierarchyConnection(nodeId, parentId) {
+  try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { error: 'Unauthorized. Admin access required.' };
+
+    await prisma.hierarchyNode.update({
+      where: { id: nodeId },
+      data: {
+        parents: {
+          disconnect: { id: parentId }
+        }
+      },
+    });
+
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error disconnecting hierarchy connection:', error);
+    return { error: 'Failed to disconnect hierarchy connection' };
   }
 }
 
@@ -124,5 +148,63 @@ export async function updateNodePosition(nodeId, x, y) {
   } catch (error) {
     console.error('Error updating node position:', error);
     return { error: 'Failed to update position' };
+  }
+}
+
+export async function getApprovalChainForUser(targetUserId = null) {
+  try {
+    let userIdToUse = targetUserId;
+    if (!userIdToUse) {
+      const session = await getSession();
+      if (!session?.userId) return { error: 'Not authenticated' };
+      userIdToUse = session.userId;
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userIdToUse } });
+    if (!user?.departmentId || !user?.designationId) {
+      return { success: true, chain: [] };
+    }
+
+    // Fetch all nodes so we can traverse in memory (fast)
+    const allNodes = await prisma.hierarchyNode.findMany({
+      include: {
+        department: true,
+        designation: true,
+        parents: true,
+      }
+    });
+
+    const userNode = allNodes.find(
+      n => n.departmentId === user.departmentId && n.designationId === user.designationId
+    );
+
+    if (!userNode) return { success: true, chain: [] };
+
+    const chain = [];
+    let currentLevelIds = (userNode.parents || []).map(p => p.id);
+    const visited = new Set([userNode.id]);
+
+    while (currentLevelIds.length > 0) {
+      const levelNodes = currentLevelIds.map(id => allNodes.find(n => n.id === id)).filter(Boolean);
+      if (levelNodes.length > 0) {
+        chain.push(levelNodes);
+      }
+      
+      const nextLevelIds = new Set();
+      for (const node of levelNodes) {
+        if (!visited.has(node.id)) {
+          visited.add(node.id);
+          for (const p of node.parents || []) {
+            nextLevelIds.add(p.id);
+          }
+        }
+      }
+      currentLevelIds = Array.from(nextLevelIds);
+    }
+
+    return { success: true, chain };
+  } catch (error) {
+    console.error('Error fetching approval chain:', error);
+    return { error: 'Failed to fetch approval chain.' };
   }
 }

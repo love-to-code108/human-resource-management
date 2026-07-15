@@ -42,14 +42,16 @@ export async function getSubordinates() {
     if (!managerNode) return { success: true, users: [], isAdmin: false };
 
     // Fetch all nodes to do an in-memory graph traversal (much faster than repeated DB queries)
-    const allNodes = await prisma.hierarchyNode.findMany();
+    const allNodes = await prisma.hierarchyNode.findMany({
+      include: { parents: true }
+    });
     const descendantNodes = [];
     
     // Breadth-First Search (BFS) to find all descendant nodes
     let queue = [managerNode.id];
     while (queue.length > 0) {
       const currentId = queue.shift();
-      const children = allNodes.filter(n => n.parentId === currentId);
+      const children = allNodes.filter(n => n.parents?.some(p => p.id === currentId));
       for (const child of children) {
         descendantNodes.push(child);
         queue.push(child.id);
@@ -178,5 +180,153 @@ export async function editUser(userId, data) {
   } catch (error) {
     console.error('Error editing user:', error);
     return { error: 'Failed to edit user. Check if email is already in use.' };
+  }
+}
+
+export async function updateUserLeaveBalance(userId, leaveTypeId, newTotalDays) {
+  try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { error: 'Unauthorized. Admin access required.' };
+
+    const currentYear = new Date().getFullYear();
+
+    // Check if the balance already exists
+    const existingBalance = await prisma.leaveBalance.findFirst({
+      where: {
+        userId: userId,
+        leaveTypeId: leaveTypeId,
+        year: currentYear
+      }
+    });
+
+    if (existingBalance) {
+      await prisma.leaveBalance.update({
+        where: { id: existingBalance.id },
+        data: { totalDays: newTotalDays }
+      });
+    } else {
+      await prisma.leaveBalance.create({
+        data: {
+          userId: userId,
+          leaveTypeId: leaveTypeId,
+          year: currentYear,
+          totalDays: newTotalDays,
+          usedDays: 0
+        }
+      });
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating user leave balance:', error);
+    return { error: 'Failed to update user leave balance.' };
+  }
+}
+
+export async function getTeamLeaveHistory() {
+  try {
+    const session = await getSession();
+    if (!session?.userId) return { error: 'Not authenticated' };
+
+    let subIds = [];
+    
+    if (session.isAdmin) {
+      const allUsers = await prisma.user.findMany({ select: { id: true } });
+      subIds = allUsers.map(u => u.id);
+    } else {
+      const user = await prisma.user.findUnique({ where: { id: session.userId } });
+      if (!user?.departmentId || !user?.designationId) {
+        return { success: true, leaves: [] };
+      }
+
+      const managerNode = await prisma.hierarchyNode.findUnique({
+        where: {
+          departmentId_designationId: {
+            departmentId: user.departmentId,
+            designationId: user.designationId
+          }
+        }
+      });
+
+      if (!managerNode) return { success: true, leaves: [] };
+
+      const allNodes = await prisma.hierarchyNode.findMany({
+        include: { parents: true }
+      });
+      
+      const descendantNodes = [];
+      let queue = [managerNode.id];
+      while (queue.length > 0) {
+        const currentId = queue.shift();
+        const children = allNodes.filter(n => n.parents?.some(p => p.id === currentId));
+        for (const child of children) {
+          descendantNodes.push(child);
+          queue.push(child.id);
+        }
+      }
+
+      if (descendantNodes.length === 0) {
+        return { success: true, leaves: [] };
+      }
+
+      const OR_conditions = descendantNodes.map(node => ({
+        departmentId: node.departmentId,
+        designationId: node.designationId
+      }));
+
+      const subordinateUsers = await prisma.user.findMany({
+        where: { OR: OR_conditions },
+        select: { id: true }
+      });
+      subIds = subordinateUsers.map(u => u.id);
+    }
+
+    if (subIds.length === 0) {
+      return { success: true, leaves: [] };
+    }
+
+    const leaves = await prisma.leaveRequest.findMany({
+      where: {
+        applicantId: { in: subIds }
+      },
+      include: {
+        applicant: {
+          include: {
+            designation: true,
+            department: true
+          }
+        },
+        leaveType: true,
+        pendingAtNodes: {
+          include: {
+            designation: true,
+            department: true
+          }
+        },
+        auditLogs: {
+          include: {
+            actor: {
+              select: { name: true }
+            }
+          },
+          orderBy: { createdAt: 'asc' }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const { getApprovalChainForUser } = await import('./hierarchy');
+    const leavesWithChain = await Promise.all(leaves.map(async (leave) => {
+      const chainRes = await getApprovalChainForUser(leave.applicantId);
+      return {
+        ...leave,
+        approvalChain: chainRes.success ? chainRes.chain : []
+      };
+    }));
+
+    return { success: true, leaves: leavesWithChain, isAdmin: session.isAdmin };
+  } catch (error) {
+    console.error('Error fetching team leave history:', error);
+    return { error: 'Failed to fetch team leave history.' };
   }
 }

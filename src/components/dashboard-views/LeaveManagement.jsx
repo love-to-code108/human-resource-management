@@ -14,7 +14,7 @@ import {
   CardTitle,
   CardDescription
 } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Dialog,
   DialogContent,
@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { LeaveStatusTracker } from './LeaveStatusTracker';
 
 export function LeaveManagement() {
   const [leaves, setLeaves] = useState([]);
@@ -164,6 +165,7 @@ export function LeaveManagement() {
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                     <div className="flex items-center gap-4">
                       <Avatar className="h-12 w-12 border">
+                        {leave.applicant.avatar && <AvatarImage src={leave.applicant.avatar} alt={leave.applicant.name} />}
                         <AvatarFallback className="bg-primary/10 text-primary font-bold">
                           {leave.applicant.name.charAt(0).toUpperCase()}
                         </AvatarFallback>
@@ -178,7 +180,7 @@ export function LeaveManagement() {
                       </div>
                     </div>
                     <div className="sm:text-right">
-                      <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-background text-muted-foreground">
+                      <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
                         {leave.leaveType.name}
                       </span>
                       <p className="text-xs text-muted-foreground mt-2">
@@ -187,19 +189,27 @@ export function LeaveManagement() {
                     </div>
                   </div>
 
-                  {/* Requested Dates */}
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-2">Requested Dates</h4>
-                    <div className="flex items-center gap-2 text-base">
-                      <Calendar className="w-4 h-4 text-primary" />
-                      <span className="font-medium">{format(new Date(leave.fromDate), 'MMM d, yyyy')}</span>
-                      <ArrowRight className="w-4 h-4 text-muted-foreground mx-2" />
-                      <Calendar className="w-4 h-4 text-primary" />
-                      <span className="font-medium">{format(new Date(leave.toDate), 'MMM d, yyyy')}</span>
+                  <div className="space-y-6">
+                    {/* Requested Dates */}
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Requested Dates</h4>
+                      <div className="flex items-center gap-2 text-base">
+                        <Calendar className="w-4 h-4 text-primary" />
+                        <span className="font-medium">{format(new Date(leave.fromDate), 'MMM d, yyyy')}</span>
+                        <ArrowRight className="w-4 h-4 text-muted-foreground mx-2" />
+                        <Calendar className="w-4 h-4 text-primary" />
+                        <span className="font-medium">{format(new Date(leave.toDate), 'MMM d, yyyy')}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        {Math.ceil((new Date(leave.toDate) - new Date(leave.fromDate)) / (1000 * 60 * 60 * 24)) + 1} Days Requested
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {Math.ceil((new Date(leave.toDate) - new Date(leave.fromDate)) / (1000 * 60 * 60 * 24)) + 1} Days Requested
-                    </p>
+
+                    {/* Subject */}
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Subject</h4>
+                      <p className="text-base font-semibold">{leave.subject || 'N/A'}</p>
+                    </div>
                   </div>
 
                   {/* Reason */}
@@ -211,11 +221,15 @@ export function LeaveManagement() {
                     />
                   </div>
 
-                  {/* Actions */}
-                  <div className="pt-2 flex flex-wrap gap-3">
+                  {/* Status Tracker */}
+                  <div className="space-y-4 pt-2">
+                    <h4 className="font-medium text-sm border-b pb-2">Approval Status</h4>
+                    <LeaveStatusTracker leave={leave} approvalChain={leave.approvalChain} />
+                  </div>
+
+                  <div className="pt-4 mt-2 flex flex-wrap items-center justify-end gap-3 border-t border-border/50 border-dashed">
                     <Button 
                       variant="outline"
-                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50"
                       onClick={() => openProposeDialog(leave)}
                       disabled={processingId === leave.id}
                     >
@@ -223,8 +237,7 @@ export function LeaveManagement() {
                       Propose Dates
                     </Button>
                     <Button 
-                      variant="outline"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      variant="destructive"
                       onClick={() => setRejectConfirmId(leave.id)}
                       disabled={processingId === leave.id}
                     >
@@ -232,9 +245,9 @@ export function LeaveManagement() {
                       Reject
                     </Button>
                     <Button 
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
                       onClick={() => setApproveConfirmId(leave.id)}
                       disabled={processingId === leave.id}
+                      className="bg-emerald-700 hover:bg-emerald-800 text-white"
                     >
                       {processingId === leave.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
                       Approve

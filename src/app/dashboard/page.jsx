@@ -9,6 +9,7 @@ import { Hierarchy } from '@/components/dashboard-views/Hierarchy';
 import { LeaveManagement } from '@/components/dashboard-views/LeaveManagement';
 import { UserManagement } from '@/components/dashboard-views/UserManagement';
 import { UserSettings } from '@/components/dashboard-views/UserSettings';
+import { TeamLeaveArchive } from '@/components/dashboard-views/TeamLeaveArchive';
 
 export default function DashboardPage() {
   const activeView = useDashboardStore((state) => state.activeView);
@@ -24,7 +25,7 @@ export default function DashboardPage() {
       }
       
       // Admin or Manager views
-      if ((activeView === 'leave-management' || activeView === 'user-management') && !roles.isAdmin && !roles.isManager) {
+      if ((activeView === 'leave-management' || activeView === 'user-management' || activeView === 'team-leaves') && !roles.isAdmin && !roles.isManager) {
         setActiveView('my-status');
       }
     };
@@ -44,6 +45,8 @@ export default function DashboardPage() {
       return <UserSettings />;
     case 'user-management':
       return <UserManagement />;
+    case 'team-leaves':
+      return <TeamLeaveArchive />;
     default:
       return <MyApplicationsStatus />;
   }

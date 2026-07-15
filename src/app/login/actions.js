@@ -37,7 +37,7 @@ export async function loginAction(prevState, formData) {
 
     if (userNode) {
       const childCount = await prisma.hierarchyNode.count({
-        where: { parentId: userNode.id }
+        where: { parents: { some: { id: userNode.id } } }
       });
       isManager = childCount > 0;
     }

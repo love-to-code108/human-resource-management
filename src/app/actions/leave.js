@@ -11,9 +11,9 @@ export async function submitLeaveApplication(data) {
       return { error: 'Not authenticated' };
     }
 
-    const { leaveTypeId, fromDate, toDate, reason } = data;
+    const { leaveTypeId, fromDate, toDate, subject, reason } = data;
 
-    if (!leaveTypeId || !fromDate || !toDate || !reason) {
+    if (!leaveTypeId || !fromDate || !toDate || !subject || !reason) {
       return { error: 'All fields are required.' };
     }
 
@@ -63,18 +63,19 @@ export async function submitLeaveApplication(data) {
           departmentId: user.departmentId,
           designationId: user.designationId,
         }
-      }
+      },
+      include: { parents: true }
     });
 
     if (!userNode) {
       return { error: 'Your role is not mapped in the Hierarchy Graph. Please ask an Admin to map your Role.' };
     }
 
-    const pendingAtNodeId = userNode.parentId;
+    const parents = userNode.parents;
     let status = 'PENDING';
 
     // If they have no manager (e.g. they are the top of the chain), auto-approve.
-    if (!pendingAtNodeId) {
+    if (!parents || parents.length === 0) {
       status = 'APPROVED';
       // Deduct balance immediately
       await prisma.leaveBalance.update({
@@ -84,15 +85,26 @@ export async function submitLeaveApplication(data) {
     }
 
     // Create the Request
-    await prisma.leaveRequest.create({
+    const leaveRequest = await prisma.leaveRequest.create({
       data: {
         applicantId: user.id,
         leaveTypeId,
         fromDate: startDate,
         toDate: endDate,
+        subject,
         reason,
         status,
-        pendingAtNodeId: pendingAtNodeId || null,
+        pendingAtNodes: parents && parents.length > 0 ? {
+          connect: parents.map(p => ({ id: p.id }))
+        } : undefined,
+      }
+    });
+
+    await prisma.leaveAuditLog.create({
+      data: {
+        leaveRequestId: leaveRequest.id,
+        action: 'SUBMITTED',
+        actorId: session.userId,
       }
     });
 
@@ -114,11 +126,19 @@ export async function getMyLeaves() {
       where: { applicantId: session.userId },
       include: {
         leaveType: true,
-        pendingAtNode: {
+        pendingAtNodes: {
           include: {
             designation: true,
             department: true
           }
+        },
+        auditLogs: {
+          include: {
+            actor: {
+              select: { name: true }
+            }
+          },
+          orderBy: { createdAt: 'asc' }
         }
       },
       orderBy: { createdAt: 'desc' }
@@ -158,6 +178,14 @@ export async function acceptNegotiation(leaveId) {
       }
     });
 
+    await prisma.leaveAuditLog.create({
+      data: {
+        leaveRequestId: leaveId,
+        action: 'ACCEPTED_DATES',
+        actorId: session.userId,
+      }
+    });
+
     revalidatePath('/dashboard');
     return { success: true };
   } catch (error) {
@@ -189,6 +217,29 @@ export async function withdrawLeave(leaveId) {
   }
 }
 
+export async function adminDeleteLeave(leaveId) {
+  try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { error: 'Unauthorized. Admin access required.' };
+
+    const leave = await prisma.leaveRequest.findUnique({
+      where: { id: leaveId }
+    });
+
+    if (!leave) return { error: 'Leave request not found.' };
+
+    await prisma.leaveRequest.delete({
+      where: { id: leaveId }
+    });
+
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting leave as admin:', error);
+    return { error: 'Failed to delete leave.' };
+  }
+}
+
 // ==========================================
 // MANAGER APPROVAL ACTIONS
 // ==========================================
@@ -217,7 +268,9 @@ export async function getManagerApprovals() {
     // Find all leaves pending at THIS node
     const leaves = await prisma.leaveRequest.findMany({
       where: {
-        pendingAtNodeId: userNode.id,
+        pendingAtNodes: {
+          some: { id: userNode.id }
+        },
         status: { in: ['PENDING'] } // We only show PENDING in the manager queue. If NEGOTIATING, it's back with the applicant.
       },
       include: {
@@ -228,11 +281,29 @@ export async function getManagerApprovals() {
           }
         },
         leaveType: true,
+        auditLogs: {
+          include: {
+            actor: {
+              select: { name: true }
+            }
+          },
+          orderBy: { createdAt: 'asc' }
+        }
       },
       orderBy: { createdAt: 'asc' }
     });
 
-    return { success: true, leaves };
+    // Attach approval chain to each leave
+    const { getApprovalChainForUser } = await import('./hierarchy');
+    const leavesWithChain = await Promise.all(leaves.map(async (leave) => {
+      const chainRes = await getApprovalChainForUser(leave.applicantId);
+      return {
+        ...leave,
+        approvalChain: chainRes.success ? chainRes.chain : []
+      };
+    }));
+
+    return { success: true, leaves: leavesWithChain };
   } catch (error) {
     console.error('Error fetching manager approvals:', error);
     return { error: 'Failed to fetch approvals.' };
@@ -246,25 +317,47 @@ export async function approveLeave(leaveId) {
 
     const leave = await prisma.leaveRequest.findUnique({
       where: { id: leaveId },
-      include: { pendingAtNode: true }
+      include: { pendingAtNodes: true }
     });
 
     if (!leave) return { error: 'Leave request not found.' };
 
-    // Move to next node if there is a parent in the hierarchy
-    const nextNodeId = leave.pendingAtNode?.parentId;
+    // We need to know WHICH manager approved it to route it up THEIR chain.
+    // However, since we don't pass manager's node ID directly here, let's find it.
+    const user = await prisma.user.findUnique({ where: { id: session.userId } });
+    const managerNode = await prisma.hierarchyNode.findUnique({
+      where: { departmentId_designationId: { departmentId: user.departmentId, designationId: user.designationId } },
+      include: { parents: true }
+    });
+
+    if (!managerNode) return { error: 'Your role is not mapped.' };
+
+    const nextParents = managerNode.parents;
     
-    if (nextNodeId) {
+    if (nextParents && nextParents.length > 0) {
       // Still needs approval higher up
       await prisma.leaveRequest.update({
         where: { id: leaveId },
-        data: { pendingAtNodeId: nextNodeId }
+        data: { 
+          // Disconnect all current nodes
+          pendingAtNodes: { set: [] },
+        }
+      });
+      // Connect new parents
+      await prisma.leaveRequest.update({
+        where: { id: leaveId },
+        data: {
+          pendingAtNodes: { connect: nextParents.map(p => ({ id: p.id })) }
+        }
       });
     } else {
       // Final approval
       await prisma.leaveRequest.update({
         where: { id: leaveId },
-        data: { status: 'APPROVED', pendingAtNodeId: null }
+        data: { 
+          status: 'APPROVED', 
+          pendingAtNodes: { set: [] } 
+        }
       });
       
       // Deduct balance
@@ -288,6 +381,15 @@ export async function approveLeave(leaveId) {
       }
     }
 
+    await prisma.leaveAuditLog.create({
+      data: {
+        leaveRequestId: leaveId,
+        action: 'APPROVED',
+        actorId: session.userId,
+        nodeId: managerNode.id
+      }
+    });
+
     revalidatePath('/dashboard');
     return { success: true };
   } catch (error) {
@@ -301,9 +403,23 @@ export async function rejectLeave(leaveId) {
     const session = await getSession();
     if (!session?.userId) return { error: 'Not authenticated' };
 
+    const user = await prisma.user.findUnique({ where: { id: session.userId } });
+    const managerNode = await prisma.hierarchyNode.findUnique({
+      where: { departmentId_designationId: { departmentId: user.departmentId, designationId: user.designationId } }
+    });
+
     await prisma.leaveRequest.update({
       where: { id: leaveId },
       data: { status: 'REJECTED' }
+    });
+
+    await prisma.leaveAuditLog.create({
+      data: {
+        leaveRequestId: leaveId,
+        action: 'REJECTED',
+        actorId: session.userId,
+        nodeId: managerNode?.id
+      }
     });
 
     revalidatePath('/dashboard');
@@ -319,12 +435,26 @@ export async function proposeNewDates(leaveId, fromDate, toDate) {
     const session = await getSession();
     if (!session?.userId) return { error: 'Not authenticated' };
 
+    const user = await prisma.user.findUnique({ where: { id: session.userId } });
+    const managerNode = await prisma.hierarchyNode.findUnique({
+      where: { departmentId_designationId: { departmentId: user.departmentId, designationId: user.designationId } }
+    });
+
     await prisma.leaveRequest.update({
       where: { id: leaveId },
       data: { 
         status: 'NEGOTIATING',
         managerSuggestedFromDate: new Date(fromDate),
         managerSuggestedToDate: new Date(toDate)
+      }
+    });
+
+    await prisma.leaveAuditLog.create({
+      data: {
+        leaveRequestId: leaveId,
+        action: 'PROPOSED_DATES',
+        actorId: session.userId,
+        nodeId: managerNode?.id
       }
     });
 
@@ -356,5 +486,45 @@ export async function getMyLeaveBalances() {
   } catch (error) {
     console.error('Error fetching balances:', error);
     return { error: 'Failed to fetch balances.' };
+  }
+}
+
+export async function editLeaveApplication(leaveId, data) {
+  try {
+    const session = await getSession();
+    if (!session?.userId) return { error: 'Not authenticated' };
+
+    const { fromDate, toDate, subject, reason } = data;
+    if (!fromDate || !toDate || !subject || !reason) return { error: 'All fields are required.' };
+
+    const startDate = new Date(fromDate);
+    const endDate = new Date(toDate);
+    
+    if (startDate > endDate) {
+      return { error: 'End date cannot be before start date.' };
+    }
+
+    const leave = await prisma.leaveRequest.findUnique({
+      where: { id: leaveId, applicantId: session.userId }
+    });
+
+    if (!leave) return { error: 'Leave request not found.' };
+    if (leave.status !== 'PENDING') return { error: 'Only pending requests can be edited.' };
+
+    await prisma.leaveRequest.update({
+      where: { id: leaveId },
+      data: {
+        fromDate: startDate,
+        toDate: endDate,
+        subject,
+        reason
+      }
+    });
+
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error editing leave application:', error);
+    return { error: 'Failed to edit leave application.' };
   }
 }
