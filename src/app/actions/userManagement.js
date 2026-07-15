@@ -42,14 +42,16 @@ export async function getSubordinates() {
     if (!managerNode) return { success: true, users: [], isAdmin: false };
 
     // Fetch all nodes to do an in-memory graph traversal (much faster than repeated DB queries)
-    const allNodes = await prisma.hierarchyNode.findMany();
+    const allNodes = await prisma.hierarchyNode.findMany({
+      include: { parents: true }
+    });
     const descendantNodes = [];
     
     // Breadth-First Search (BFS) to find all descendant nodes
     let queue = [managerNode.id];
     while (queue.length > 0) {
       const currentId = queue.shift();
-      const children = allNodes.filter(n => n.parentId === currentId);
+      const children = allNodes.filter(n => n.parents?.some(p => p.id === currentId));
       for (const child of children) {
         descendantNodes.push(child);
         queue.push(child.id);
