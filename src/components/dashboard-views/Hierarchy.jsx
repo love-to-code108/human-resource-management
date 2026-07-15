@@ -88,22 +88,27 @@ function HierarchyBuilder() {
           },
         }));
 
-        const flowEdges = rawNodes
-          .filter(n => n.parentId)
-          .map(n => ({
-            id: `e-${n.id}-${n.parentId}`,
-            source: n.id,       // Subordinate is now the source
-            target: n.parentId, // Manager is the target
-            type: 'smoothstep',
-            animated: true,
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              width: 15,
-              height: 15,
-              color: '#3b82f6', // blue-500
-            },
-            style: { stroke: '#3b82f6', strokeWidth: 2 },
-          }));
+        const flowEdges = [];
+        rawNodes.forEach(n => {
+          if (n.parents && n.parents.length > 0) {
+            n.parents.forEach(p => {
+              flowEdges.push({
+                id: `e-${n.id}-${p.id}`,
+                source: n.id,       // Subordinate is now the source
+                target: p.id,       // Manager is the target
+                type: 'smoothstep',
+                animated: true,
+                markerEnd: {
+                  type: MarkerType.ArrowClosed,
+                  width: 15,
+                  height: 15,
+                  color: '#3b82f6', // blue-500
+                },
+                style: { stroke: '#3b82f6', strokeWidth: 2 },
+              });
+            });
+          }
+        });
 
         setNodes(flowNodes);
         setEdges(flowEdges);
@@ -136,13 +141,6 @@ function HierarchyBuilder() {
       // source = Subordinate, target = Manager
       const { source, target } = params;
       
-      // Check if Subordinate already has a manager (parent)
-      const subordinateAlreadyHasManager = edges.some(e => e.source === source);
-      if (subordinateAlreadyHasManager) {
-        toast.error("This role already reports to someone. Disconnect them first.");
-        return;
-      }
-
       // Optimistically add edge
       const newEdge = {
         ...params,
@@ -169,9 +167,11 @@ function HierarchyBuilder() {
 
   const onEdgesDelete = useCallback(
     async (deletedEdges) => {
+      // Use disconnectHierarchyConnection from hierarchy.js
+      const { disconnectHierarchyConnection } = await import('@/app/actions/hierarchy');
       for (const edge of deletedEdges) {
-        // Disconnecting means setting subordinate's (source) parentId to null
-        const res = await updateHierarchyConnection(edge.source, null);
+        // Disconnecting means removing the target from the source's parents
+        const res = await disconnectHierarchyConnection(edge.source, edge.target);
         if (res.error) {
           toast.error(res.error);
         } else {

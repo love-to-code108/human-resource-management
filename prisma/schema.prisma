@@ -59,14 +59,13 @@ model HierarchyNode {
   id              String   @id @default(cuid())
   designationId   String
   departmentId    String
-  parentId        String?
   x               Float?   @default(50)
   y               Float?   @default(50)
   
   // The connections
   designation     Designation @relation(fields: [designationId], references: [id])
   department      Department  @relation(fields: [departmentId], references: [id])
-  parent          HierarchyNode?  @relation("NodeHierarchy", fields: [parentId], references: [id])
+  parents         HierarchyNode[] @relation("NodeHierarchy")
   children        HierarchyNode[] @relation("NodeHierarchy")
 
   // The queue of leaves waiting for THIS ROLE to approve them
@@ -125,15 +124,13 @@ model LeaveRequest {
   reason          String        // Will store rich text HTML/JSON from Novel editor
   status          RequestStatus @default(PENDING)
   
-  pendingAtNodeId String?
-  
   // Negotiation fields
   managerSuggestedFromDate DateTime?
   managerSuggestedToDate   DateTime?
   
   leaveType       LeaveType     @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
   applicant       User          @relation("Applicant", fields: [applicantId], references: [id], onDelete: Cascade)
-  pendingAtNode   HierarchyNode? @relation("NodeApprover", fields: [pendingAtNodeId], references: [id])
+  pendingAtNodes  HierarchyNode[] @relation("NodeApprover")
 
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt

@@ -10,6 +10,7 @@ export async function getHierarchyNodes() {
       include: {
         department: true,
         designation: true,
+        parents: true,
       },
     });
     return { success: true, data: nodes };
@@ -63,16 +64,17 @@ export async function updateHierarchyConnection(nodeId, parentId) {
     const session = await getSession();
     if (!session?.isAdmin) return { error: 'Unauthorized. Admin access required.' };
 
-    // Prevent self-reference
     if (nodeId === parentId) {
       return { error: 'A node cannot report to itself.' };
     }
 
-    // Optional: add a cyclic dependency check here if needed in the future
-    
     await prisma.hierarchyNode.update({
       where: { id: nodeId },
-      data: { parentId: parentId || null }, // null disconnects it
+      data: {
+        parents: {
+          connect: { id: parentId }
+        }
+      },
     });
 
     revalidatePath('/dashboard');
@@ -80,6 +82,28 @@ export async function updateHierarchyConnection(nodeId, parentId) {
   } catch (error) {
     console.error('Error updating hierarchy connection:', error);
     return { error: 'Failed to update hierarchy connection' };
+  }
+}
+
+export async function disconnectHierarchyConnection(nodeId, parentId) {
+  try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { error: 'Unauthorized. Admin access required.' };
+
+    await prisma.hierarchyNode.update({
+      where: { id: nodeId },
+      data: {
+        parents: {
+          disconnect: { id: parentId }
+        }
+      },
+    });
+
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error disconnecting hierarchy connection:', error);
+    return { error: 'Failed to disconnect hierarchy connection' };
   }
 }
 

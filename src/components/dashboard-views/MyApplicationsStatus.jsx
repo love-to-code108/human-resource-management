@@ -135,8 +135,8 @@ export function MyApplicationsStatus() {
                     <div className="sm:text-right">
                       <p className="text-sm font-medium text-muted-foreground">Pending At</p>
                       <p className="text-sm">
-                        {leave.pendingAtNode ? 
-                          `${leave.pendingAtNode.designation.name}, ${leave.pendingAtNode.department.name}` 
+                        {leave.pendingAtNodes && leave.pendingAtNodes.length > 0 ? 
+                          leave.pendingAtNodes.map(node => `${node.designation.name}, ${node.department.name}`).join(' OR ') 
                           : 'System (Auto)'}
                       </p>
                     </div>

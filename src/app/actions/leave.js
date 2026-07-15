@@ -63,18 +63,19 @@ export async function submitLeaveApplication(data) {
           departmentId: user.departmentId,
           designationId: user.designationId,
         }
-      }
+      },
+      include: { parents: true }
     });
 
     if (!userNode) {
       return { error: 'Your role is not mapped in the Hierarchy Graph. Please ask an Admin to map your Role.' };
     }
 
-    const pendingAtNodeId = userNode.parentId;
+    const parents = userNode.parents;
     let status = 'PENDING';
 
     // If they have no manager (e.g. they are the top of the chain), auto-approve.
-    if (!pendingAtNodeId) {
+    if (!parents || parents.length === 0) {
       status = 'APPROVED';
       // Deduct balance immediately
       await prisma.leaveBalance.update({
@@ -92,7 +93,9 @@ export async function submitLeaveApplication(data) {
         toDate: endDate,
         reason,
         status,
-        pendingAtNodeId: pendingAtNodeId || null,
+        pendingAtNodes: parents && parents.length > 0 ? {
+          connect: parents.map(p => ({ id: p.id }))
+        } : undefined,
       }
     });
 
@@ -114,7 +117,7 @@ export async function getMyLeaves() {
       where: { applicantId: session.userId },
       include: {
         leaveType: true,
-        pendingAtNode: {
+        pendingAtNodes: {
           include: {
             designation: true,
             department: true
@@ -217,7 +220,9 @@ export async function getManagerApprovals() {
     // Find all leaves pending at THIS node
     const leaves = await prisma.leaveRequest.findMany({
       where: {
-        pendingAtNodeId: userNode.id,
+        pendingAtNodes: {
+          some: { id: userNode.id }
+        },
         status: { in: ['PENDING'] } // We only show PENDING in the manager queue. If NEGOTIATING, it's back with the applicant.
       },
       include: {
@@ -246,25 +251,47 @@ export async function approveLeave(leaveId) {
 
     const leave = await prisma.leaveRequest.findUnique({
       where: { id: leaveId },
-      include: { pendingAtNode: true }
+      include: { pendingAtNodes: true }
     });
 
     if (!leave) return { error: 'Leave request not found.' };
 
-    // Move to next node if there is a parent in the hierarchy
-    const nextNodeId = leave.pendingAtNode?.parentId;
+    // We need to know WHICH manager approved it to route it up THEIR chain.
+    // However, since we don't pass manager's node ID directly here, let's find it.
+    const user = await prisma.user.findUnique({ where: { id: session.userId } });
+    const managerNode = await prisma.hierarchyNode.findUnique({
+      where: { departmentId_designationId: { departmentId: user.departmentId, designationId: user.designationId } },
+      include: { parents: true }
+    });
+
+    if (!managerNode) return { error: 'Your role is not mapped.' };
+
+    const nextParents = managerNode.parents;
     
-    if (nextNodeId) {
+    if (nextParents && nextParents.length > 0) {
       // Still needs approval higher up
       await prisma.leaveRequest.update({
         where: { id: leaveId },
-        data: { pendingAtNodeId: nextNodeId }
+        data: { 
+          // Disconnect all current nodes
+          pendingAtNodes: { set: [] },
+        }
+      });
+      // Connect new parents
+      await prisma.leaveRequest.update({
+        where: { id: leaveId },
+        data: {
+          pendingAtNodes: { connect: nextParents.map(p => ({ id: p.id })) }
+        }
       });
     } else {
       // Final approval
       await prisma.leaveRequest.update({
         where: { id: leaveId },
-        data: { status: 'APPROVED', pendingAtNodeId: null }
+        data: { 
+          status: 'APPROVED', 
+          pendingAtNodes: { set: [] } 
+        }
       });
       
       // Deduct balance
