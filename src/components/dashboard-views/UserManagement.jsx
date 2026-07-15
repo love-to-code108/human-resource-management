@@ -39,7 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 
 export function UserManagement() {
@@ -284,6 +284,7 @@ export function UserManagement() {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-9 w-9 border">
+                          {user.avatar && <AvatarImage src={user.avatar} alt={user.name} />}
                           <AvatarFallback className="bg-primary text-primary-foreground font-bold text-sm">
                             {user.name.substring(0, 2).toUpperCase()}
                           </AvatarFallback>
@@ -339,6 +340,7 @@ export function UserManagement() {
                 <DialogHeader className="pb-4 border-b">
                   <DialogTitle className="flex items-center gap-4">
                     <Avatar className="h-12 w-12 border">
+                      {selectedUser.avatar && <AvatarImage src={selectedUser.avatar} alt={selectedUser.name} />}
                       <AvatarFallback className="bg-primary text-primary-foreground font-bold text-lg">
                         {selectedUser.name.substring(0, 2).toUpperCase()}
                       </AvatarFallback>

@@ -14,7 +14,7 @@ import {
   CardTitle,
   CardDescription
 } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Dialog,
   DialogContent,
@@ -164,6 +164,7 @@ export function LeaveManagement() {
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                     <div className="flex items-center gap-4">
                       <Avatar className="h-12 w-12 border">
+                        {leave.applicant.avatar && <AvatarImage src={leave.applicant.avatar} alt={leave.applicant.name} />}
                         <AvatarFallback className="bg-primary/10 text-primary font-bold">
                           {leave.applicant.name.charAt(0).toUpperCase()}
                         </AvatarFallback>
