@@ -5,7 +5,7 @@ import { useDashboardStore } from '@/store/dashboardStore';
 import {
   Users, Building2, Briefcase, CalendarClock, Settings, LogOut, Info,
   UserPlus, CalendarPlus, Network, FileText, CheckSquare, ListTodo,
-  ChevronsUpDown, ChevronRight, GalleryVerticalEnd, History
+  ChevronsUpDown, ChevronRight, GalleryVerticalEnd, History, UserCog
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -109,6 +109,7 @@ export function Sidebar({ isAdmin, isManager, userName, userEmail, userAvatar })
               <AddDepartmentDialog trigger={<SidebarItem icon={Building2} label="Add Department" />} />
               <AddLeaveTypeDialog trigger={<SidebarItem icon={CalendarPlus} label="Add Leave Type" />} />
               <NavItem viewId="hierarchy" icon={Network} label="Hierarchy Mapper" />
+              <NavItem viewId="registration" icon={UserCog} label="Registration Hub" />
             </div>
           </div>
         )}
