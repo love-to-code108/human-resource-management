@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react';
 import { getSubordinates, deleteUser, editUser, adjustUserLeaveBalance } from '@/app/actions/userManagement';
 import { getDepartments } from '@/app/actions/department';
 import { getDesignations } from '@/app/actions/designation';
-import { Loader2, Users, Search, ChevronRight, Briefcase, Building2, Calendar, Trash2, Edit2, AlertCircle } from 'lucide-react';
+import { exportSystemData } from '@/app/actions/export';
+import { Loader2, Users, Search, ChevronRight, Briefcase, Building2, Calendar, Trash2, Edit2, AlertCircle, Download } from 'lucide-react';
+import * as xlsx from 'xlsx';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -76,6 +78,8 @@ export function UserManagement() {
 
   const [isAdjustLeaveDialogOpen, setIsAdjustLeaveDialogOpen] = useState(false);
   const [adjustLeaveData, setAdjustLeaveData] = useState({ balanceId: null, leaveTypeId: null, leaveTypeName: '', amount: '', reason: '' });
+
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     loadUsers();
@@ -230,12 +234,55 @@ export function UserManagement() {
     }
   };
 
+  const handleExport = async () => {
+    setIsExporting(true);
+    toast.info("Generating report...");
+    const res = await exportSystemData();
+    
+    if (res.success) {
+      try {
+        const wb = xlsx.utils.book_new();
+        
+        // 1. Employee Directory Sheet
+        const wsDirectory = xlsx.utils.json_to_sheet(res.directoryData);
+        xlsx.utils.book_append_sheet(wb, wsDirectory, "Employee Overview");
+        
+        // 2. Leave History Sheet
+        const wsLeaves = xlsx.utils.json_to_sheet(res.leaveLogData);
+        xlsx.utils.book_append_sheet(wb, wsLeaves, "Detailed Leave Log");
+        
+        // Save file
+        xlsx.writeFile(wb, `HR_System_Export_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+        toast.success("Report downloaded successfully");
+      } catch (err) {
+        console.error("Export error:", err);
+        toast.error("An error occurred while building the Excel file.");
+      }
+    } else {
+      toast.error(res.error || "Failed to fetch export data");
+    }
+    setIsExporting(false);
+  };
+
   return (
     <div className="flex-1 p-6 lg:p-10 animate-in fade-in duration-500 h-full overflow-y-auto">
       <div className="max-w-4xl mx-auto space-y-8 pt-4 pb-16">
-        <div className="space-y-2">
-          <h2 className="text-3xl font-semibold tracking-tight">User Management</h2>
-          <p className="text-muted-foreground">View the details and leave balances of your team members.</p>
+        <div className="flex justify-between items-start">
+          <div className="space-y-2">
+            <h2 className="text-3xl font-semibold tracking-tight">User Management</h2>
+            <p className="text-muted-foreground">View the details and leave balances of your team members.</p>
+          </div>
+          {isAdmin && (
+            <Button 
+              variant="outline" 
+              className="gap-2 shadow-sm border-border/50 bg-background" 
+              onClick={handleExport}
+              disabled={isExporting}
+            >
+              {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4 text-emerald-600" />}
+              {isExporting ? "Exporting..." : "Export Report"}
+            </Button>
+          )}
         </div>
 
         <div className="flex flex-row gap-3 items-center w-full">
