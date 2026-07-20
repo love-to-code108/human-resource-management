@@ -281,6 +281,7 @@ export async function getManagerApprovals() {
           }
         },
         leaveType: true,
+        pendingAtNodes: true,
         auditLogs: {
           include: {
             actor: {

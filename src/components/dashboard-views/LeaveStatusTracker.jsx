@@ -47,10 +47,13 @@ export function LeaveStatusTracker({ leave, approvalChain }) {
               </div>
 
               {actionLog && (
-                <div className="mt-1 text-xs text-muted-foreground bg-muted/30 p-2 rounded-md border border-border/50">
-                  <span className="font-medium text-foreground">{actionLog.actor.name}</span>
-                  {' '}{actionLog.action === 'APPROVED' ? 'approved' : actionLog.action === 'REJECTED' ? 'rejected' : 'proposed dates'}{' on '}
-                  {format(new Date(actionLog.createdAt), 'MMM d, yyyy - h:mm a')}
+                <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <div className="w-1 h-1 rounded-full bg-foreground/50 shrink-0" />
+                  <div>
+                    <span className="font-medium text-foreground">{actionLog.actor.name}</span>
+                    {' '}{actionLog.action === 'APPROVED' ? 'approved' : actionLog.action === 'REJECTED' ? 'rejected' : 'proposed dates'}{' on '}
+                    {format(new Date(actionLog.createdAt), 'MMM d, yyyy - h:mm a')}
+                  </div>
                 </div>
               )}
             </div>
