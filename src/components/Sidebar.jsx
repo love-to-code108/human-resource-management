@@ -5,7 +5,7 @@ import { useDashboardStore } from '@/store/dashboardStore';
 import {
   Users, Building2, Briefcase, CalendarClock, Settings, LogOut, Info,
   UserPlus, CalendarPlus, Network, FileText, CheckSquare, ListTodo,
-  ChevronsUpDown, ChevronRight, GalleryVerticalEnd, History, UserCog
+  ChevronsUpDown, ChevronRight, GalleryVerticalEnd, History, UserCog, RefreshCcw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -15,6 +15,19 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
   DropdownMenuGroup
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { toast } from 'sonner';
+import { resetAllLeaveBalances } from '@/app/actions/userManagement';
 
 import { AddUserDialog } from '@/components/AddUserDialog';
 import { AddDesignationDialog } from '@/components/AddDesignationDialog';
@@ -22,6 +35,48 @@ import { AddDepartmentDialog } from '@/components/AddDepartmentDialog';
 import { AddLeaveTypeDialog } from '@/components/AddLeaveTypeDialog';
 import { logoutAction } from '@/app/actions/auth';
 import { useRouter } from 'next/navigation';
+
+function ResetLeavesButton({ trigger }) {
+  const [open, setOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
+  const handleReset = async (e) => {
+    e.preventDefault();
+    setIsResetting(true);
+    const res = await resetAllLeaveBalances();
+    setIsResetting(false);
+    if (res.success) {
+      toast.success('All leave balances have been reset successfully.');
+      setOpen(false);
+    } else {
+      toast.error(res.error || 'Failed to reset leave balances.');
+    }
+  };
+
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger asChild>
+        {trigger}
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Reset All Leave Balances?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will reset every user's leave balance to their base allocated days for the current year. 
+            All manual balance adjustments will be wiped (or tracked as a system reset). 
+            This action cannot be undone. Are you sure you want to proceed?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isResetting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleReset} disabled={isResetting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            {isResetting ? 'Resetting...' : 'Yes, Reset All'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
 
 export function Sidebar({ isAdmin, isManager, userName, userEmail, userAvatar }) {
   const activeView = useDashboardStore((state) => state.activeView);
@@ -110,6 +165,8 @@ export function Sidebar({ isAdmin, isManager, userName, userEmail, userAvatar })
               <AddLeaveTypeDialog trigger={<SidebarItem icon={CalendarPlus} label="Add Leave Type" />} />
               <NavItem viewId="hierarchy" icon={Network} label="Hierarchy Mapper" />
               <NavItem viewId="registration" icon={UserCog} label="Registration Hub" />
+              <div className="h-px bg-border my-2 mx-2 opacity-50" />
+              <ResetLeavesButton trigger={<SidebarItem icon={RefreshCcw} label="Reset All Leaves" className="text-destructive hover:text-destructive hover:bg-destructive/10 font-medium" />} />
             </div>
           </div>
         )}

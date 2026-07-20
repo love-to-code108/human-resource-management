@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Loader2, Send, CalendarIcon, ArrowRight } from 'lucide-react';
+import { Loader2, Send, CalendarIcon, ArrowRight, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { RichTextEditor } from '@/components/ui/RichTextEditor';
 import { format } from 'date-fns';
@@ -222,6 +222,18 @@ export function NewLeaveApplication() {
                 </Popover>
               </div>
             </div>
+
+            {remainingAfter < 0 && (
+              <div className="flex items-start gap-3 p-4 rounded-lg bg-destructive/5 border border-destructive/30 max-w-2xl mt-6 animate-in fade-in zoom-in-95 duration-300">
+                <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                <div className="space-y-1 w-full mt-0.5">
+                  <h4 className="text-sm font-semibold text-destructive">Balance Warning</h4>
+                  <div className="text-[13px] text-foreground/80 leading-tight">
+                    This request exceeds your available leave balance by <strong>{Math.abs(remainingAfter)} days</strong>. You may still submit this application, but it will require a manager's override to be approved.
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="border-b border-border" />

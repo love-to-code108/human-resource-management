@@ -12,6 +12,13 @@ enum RequestStatus {
   NEGOTIATING
   APPROVED
   REJECTED
+  CANCELLED
+}
+
+enum TransactionType {
+  SYSTEM_DEDUCTION
+  SYSTEM_REFUND
+  MANUAL_ADJUSTMENT
 }
 
 model Designation {
@@ -53,6 +60,8 @@ model User {
   leaveBalances   LeaveBalance[]
   leavesApplied   LeaveRequest[] @relation("Applicant")
   auditLogs       LeaveAuditLog[] @relation("Actor")
+  transactions    LeaveBalanceTransaction[] @relation("UserTransactions")
+  performedTransactions LeaveBalanceTransaction[] @relation("PerformedByTransactions")
 
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -91,6 +100,7 @@ model LeaveType {
   leaveRequests LeaveRequest[]
   leaveBalances LeaveBalance[]
   allocations   LeaveAllocationRule[]
+  transactions  LeaveBalanceTransaction[]
 }
 
 model LeaveAllocationRule {
@@ -116,8 +126,27 @@ model LeaveBalance {
 
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+  transactions LeaveBalanceTransaction[]
 
   @@unique([userId, leaveTypeId, year])
+}
+
+model LeaveBalanceTransaction {
+  id              String          @id @default(cuid())
+  userId          String
+  leaveTypeId     String
+  amount          Int
+  reason          String
+  performedById   String?
+  transactionType TransactionType
+  createdAt       DateTime        @default(now())
+
+  // Relations
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade, name: "UserTransactions")
+  performedBy     User?         @relation(fields: [performedById], references: [id], onDelete: SetNull, name: "PerformedByTransactions")
+  leaveType       LeaveType     @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+  leaveBalanceId  String?
+  leaveBalance    LeaveBalance? @relation(fields: [leaveBalanceId], references: [id], onDelete: Cascade)
 }
 
 model LeaveRequest {

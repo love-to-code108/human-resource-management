@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getSubordinates, deleteUser, editUser, updateUserLeaveBalance } from '@/app/actions/userManagement';
+import { getSubordinates, deleteUser, editUser, adjustUserLeaveBalance } from '@/app/actions/userManagement';
 import { getDepartments } from '@/app/actions/department';
 import { getDesignations } from '@/app/actions/designation';
 import { Loader2, Users, Search, ChevronRight, Briefcase, Building2, Calendar, Trash2, Edit2, AlertCircle } from 'lucide-react';
@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { UserActivityTimeline } from './UserActivityTimeline';
 
 export function UserManagement() {
   const [users, setUsers] = useState([]);
@@ -72,7 +73,7 @@ export function UserManagement() {
   });
 
   const [isAdjustLeaveDialogOpen, setIsAdjustLeaveDialogOpen] = useState(false);
-  const [adjustLeaveData, setAdjustLeaveData] = useState({ balanceId: null, leaveTypeId: null, leaveTypeName: '', currentTotal: 0, newTotal: 0 });
+  const [adjustLeaveData, setAdjustLeaveData] = useState({ balanceId: null, leaveTypeId: null, leaveTypeName: '', amount: '', reason: '' });
 
   useEffect(() => {
     loadUsers();
@@ -197,8 +198,8 @@ export function UserManagement() {
       balanceId: balance.id,
       leaveTypeId: balance.leaveType.id,
       leaveTypeName: balance.leaveType.name,
-      currentTotal: balance.totalDays,
-      newTotal: balance.totalDays
+      amount: '',
+      reason: ''
     });
     setIsAdjustLeaveDialogOpen(true);
   };
@@ -206,16 +207,17 @@ export function UserManagement() {
   const handleAdjustLeaveSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    const res = await updateUserLeaveBalance(selectedUser.id, adjustLeaveData.leaveTypeId, parseInt(adjustLeaveData.newTotal));
+    const res = await adjustUserLeaveBalance(selectedUser.id, adjustLeaveData.leaveTypeId, adjustLeaveData.amount, adjustLeaveData.reason);
     if (res.success) {
       toast.success('Leave balance updated successfully');
       setIsAdjustLeaveDialogOpen(false);
       
+      const numAmount = parseInt(adjustLeaveData.amount, 10);
       setSelectedUser(prev => ({
         ...prev,
         leaveBalances: prev.leaveBalances.map(b => 
           b.id === adjustLeaveData.balanceId 
-            ? { ...b, totalDays: parseInt(adjustLeaveData.newTotal) } 
+            ? { ...b, totalDays: b.totalDays + numAmount } 
             : b
         )
       }));
@@ -449,44 +451,13 @@ export function UserManagement() {
                   </div>
 
                   <div className="mt-6">
-                    <h4 className="text-sm font-semibold mb-2 pb-2 border-b">
-                      Leave Applications History
+                    <h4 className="text-sm font-semibold mb-4 pb-2 border-b">
+                      Activity Timeline
                     </h4>
                     
-                    {(!selectedUser.leavesApplied || selectedUser.leavesApplied.length === 0) ? (
-                      <p className="text-sm text-muted-foreground py-4 text-center">
-                        No leave applications found.
-                      </p>
-                    ) : (
-                      <div className="flex flex-col gap-3 mt-3 max-h-[300px] overflow-y-auto pr-2">
-                        {selectedUser.leavesApplied.map(leave => (
-                          <div key={leave.id} className="p-3 rounded-md border bg-muted/20 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium text-sm">{leave.leaveType.name}</span>
-                              <Badge variant={
-                                leave.status === 'APPROVED' ? 'default' : 
-                                leave.status === 'REJECTED' ? 'destructive' : 'secondary'
-                              }>
-                                {leave.status}
-                              </Badge>
-                            </div>
-                            <div className="text-xs text-muted-foreground flex items-center gap-2">
-                              <Calendar className="w-3 h-3 shrink-0" />
-                              {format(new Date(leave.fromDate), 'MMM d, yyyy')} - {format(new Date(leave.toDate), 'MMM d, yyyy')}
-                            </div>
-                            {leave.overrideReason && (
-                              <div className="bg-destructive/10 text-destructive text-xs p-2 rounded border border-destructive/20 mt-2 flex flex-col gap-1">
-                                <div className="flex items-center gap-1 font-semibold">
-                                  <AlertCircle className="w-3 h-3 shrink-0" />
-                                  Balance Overridden
-                                </div>
-                                <p>{leave.overrideReason}</p>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <div className="max-h-[350px] overflow-y-auto pr-2">
+                      <UserActivityTimeline userId={selectedUser.id} />
+                    </div>
                   </div>
                 </div>
               </>
@@ -577,17 +548,26 @@ export function UserManagement() {
                 <div className="text-sm p-2 bg-muted rounded-md">{adjustLeaveData.leaveTypeName}</div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Total Allocated Days</label>
+                <label className="text-sm font-medium">Adjustment Amount (+ or -)</label>
                 <Input 
                   type="number" 
-                  min="0"
-                  value={adjustLeaveData.newTotal} 
-                  onChange={(e) => setAdjustLeaveData({...adjustLeaveData, newTotal: e.target.value})} 
+                  value={adjustLeaveData.amount} 
+                  onChange={(e) => setAdjustLeaveData({...adjustLeaveData, amount: e.target.value})} 
+                  placeholder="e.g. 2 or -1"
                   required 
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Increase this value to grant extra leaves (e.g., for overtime).
+                  Use positive numbers to add days, negative to deduct.
                 </p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Justification Reason</label>
+                <Input 
+                  value={adjustLeaveData.reason} 
+                  onChange={(e) => setAdjustLeaveData({...adjustLeaveData, reason: e.target.value})} 
+                  placeholder="Reason for adjustment"
+                  required 
+                />
               </div>
               <div className="pt-2 flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={() => setIsAdjustLeaveDialogOpen(false)}>Cancel</Button>

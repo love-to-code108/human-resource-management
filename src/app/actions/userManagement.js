@@ -338,3 +338,154 @@ export async function getTeamLeaveHistory() {
     return { error: 'Failed to fetch team leave history.' };
   }
 }
+
+export async function adjustUserLeaveBalance(userId, leaveTypeId, amount, reason) {
+  try {
+    const session = await getSession();
+    if (!session?.userId) return { error: 'Not authenticated.' };
+    
+    const numericAmount = parseInt(amount, 10);
+    if (isNaN(numericAmount) || numericAmount === 0) {
+      return { error: 'Amount must be a non-zero number.' };
+    }
+    
+    if (!reason || reason.trim() === '') {
+      return { error: 'A justification reason is required.' };
+    }
+
+    const currentYear = new Date().getFullYear();
+    const balance = await prisma.leaveBalance.findUnique({
+      where: {
+        userId_leaveTypeId_year: {
+          userId,
+          leaveTypeId,
+          year: currentYear
+        }
+      }
+    });
+
+    if (!balance) {
+      return { error: 'Leave balance not found for the current year.' };
+    }
+
+    await prisma.leaveBalance.update({
+      where: { id: balance.id },
+      data: { totalDays: balance.totalDays + numericAmount }
+    });
+
+    await prisma.leaveBalanceTransaction.create({
+      data: {
+        userId,
+        leaveTypeId,
+        amount: numericAmount,
+        reason,
+        performedById: session.userId,
+        transactionType: 'MANUAL_ADJUSTMENT',
+        leaveBalanceId: balance.id
+      }
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error adjusting leave balance:', error);
+    return { error: 'Failed to adjust leave balance.' };
+  }
+}
+
+export async function getUserActivityTimeline(userId) {
+  try {
+    const session = await getSession();
+    if (!session?.userId) return { error: 'Not authenticated.' };
+
+    const leaveRequests = await prisma.leaveRequest.findMany({
+      where: { applicantId: userId },
+      include: {
+        leaveType: true,
+        auditLogs: {
+          include: { actor: { select: { name: true } } },
+          orderBy: { createdAt: 'asc' }
+        }
+      }
+    });
+
+    const manualTransactions = await prisma.leaveBalanceTransaction.findMany({
+      where: { userId, transactionType: 'MANUAL_ADJUSTMENT' },
+      include: {
+        leaveType: true,
+        performedBy: { select: { name: true } }
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    return { success: true, leaveRequests, manualTransactions };
+  } catch (error) {
+    console.error('Error fetching timeline:', error);
+    return { error: 'Failed to fetch timeline.' };
+  }
+}
+
+export async function resetAllLeaveBalances() {
+  try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { error: 'Unauthorized. Admin access required.' };
+
+    const currentYear = new Date().getFullYear();
+    const users = await prisma.user.findMany({
+      include: { designation: true }
+    });
+    const leaveTypes = await prisma.leaveType.findMany({
+      where: { isActive: true },
+      include: { allocations: true }
+    });
+
+    for (const user of users) {
+      for (const leaveType of leaveTypes) {
+        let allocatedDays = leaveType.defaultDays;
+        if (user.designationId) {
+          const allocation = leaveType.allocations.find(a => a.designationId === user.designationId);
+          if (allocation) {
+            allocatedDays = allocation.allocatedDays;
+          }
+        }
+
+        const balance = await prisma.leaveBalance.upsert({
+          where: {
+            userId_leaveTypeId_year: {
+              userId: user.id,
+              leaveTypeId: leaveType.id,
+              year: currentYear
+            }
+          },
+          update: {
+            totalDays: allocatedDays,
+            usedDays: 0
+          },
+          create: {
+            userId: user.id,
+            leaveTypeId: leaveType.id,
+            year: currentYear,
+            totalDays: allocatedDays,
+            usedDays: 0
+          }
+        });
+
+        await prisma.leaveBalanceTransaction.create({
+          data: {
+            userId: user.id,
+            leaveTypeId: leaveType.id,
+            amount: allocatedDays,
+            reason: 'System Reset of all leave balances',
+            performedById: session.userId,
+            transactionType: 'MANUAL_ADJUSTMENT',
+            leaveBalanceId: balance.id
+          }
+        });
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error resetting leave balances:', error);
+    return { error: 'Failed to reset leave balances.' };
+  }
+}
