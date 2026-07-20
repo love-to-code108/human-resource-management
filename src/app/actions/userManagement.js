@@ -301,7 +301,10 @@ export async function getTeamLeaveHistory() {
         applicant: {
           include: {
             designation: true,
-            department: true
+            department: true,
+            leaveBalances: {
+              where: { year: new Date().getFullYear() },
+            }
           }
         },
         leaveType: true,
