@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import {
   Table,
   TableBody,
@@ -61,6 +62,7 @@ export function UserManagement() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [activeTab, setActiveTab] = useState('balances');
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState(null);
@@ -395,70 +397,91 @@ export function UserManagement() {
                   </DialogTitle>
                 </DialogHeader>
 
-                <div className="grid gap-6 py-2">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground block mb-1 text-xs uppercase tracking-wider font-semibold">Designation</span>
-                      <span className="font-medium text-foreground">{selectedUser.designation?.name || 'Unassigned'}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block mb-1 text-xs uppercase tracking-wider font-semibold">Department</span>
-                      <span className="font-medium text-foreground">{selectedUser.department?.name || 'Unassigned'}</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="text-sm font-semibold mb-2 pb-2 border-b">
-                      Leave Balances ({new Date().getFullYear()})
-                    </h4>
-                    
-                    {(!selectedUser.leaveBalances || selectedUser.leaveBalances.length === 0) ? (
-                      <p className="text-sm text-muted-foreground py-4 text-center">
-                        No leave balances found for this year.
-                      </p>
-                    ) : (
-                      <div className="flex flex-col">
-                        {selectedUser.leaveBalances.map(balance => {
-                          const remaining = balance.totalDays - balance.usedDays;
-                          
-                          return (
-                            <div key={balance.id} className="flex items-center justify-between py-3 border-b last:border-0">
-                              <div>
-                                <span className="font-medium text-sm block">{balance.leaveType.name}</span>
-                                <span className="text-xs text-muted-foreground mt-0.5 block">{balance.usedDays} used out of {balance.totalDays}</span>
-                                </div>
-                              <div className="text-right shrink-0 flex items-center gap-4">
-                                <div className="text-right">
-                                  <span className="text-2xl font-semibold tracking-tight text-foreground">{remaining}</span>
-                                </div>
-                                {isAdmin && (
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                                    onClick={() => openAdjustLeave(balance)}
-                                    title="Adjust Leave Balance"
-                                  >
-                                    <Edit2 className="w-4 h-4" />
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                <div className="flex items-center gap-6 border-b mt-4">
+                  <button 
+                    onClick={() => setActiveTab('balances')}
+                    className={cn(
+                      "pb-2 text-sm font-medium transition-colors border-b-2",
+                      activeTab === 'balances' ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
                     )}
-                  </div>
+                  >
+                    Balances & Quotas
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('timeline')}
+                    className={cn(
+                      "pb-2 text-sm font-medium transition-colors border-b-2",
+                      activeTab === 'timeline' ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Activity Timeline
+                  </button>
+                </div>
 
-                  <div className="mt-6">
-                    <h4 className="text-sm font-semibold mb-4 pb-2 border-b">
-                      Activity Timeline
-                    </h4>
-                    
-                    <div className="max-h-[350px] overflow-y-auto pr-2">
+                <div className="py-2">
+                  {activeTab === 'balances' && (
+                    <div className="grid gap-6 animate-in fade-in slide-in-from-left-2 duration-300 pt-2">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground block mb-1 text-xs uppercase tracking-wider font-semibold">Designation</span>
+                          <span className="font-medium text-foreground">{selectedUser.designation?.name || 'Unassigned'}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block mb-1 text-xs uppercase tracking-wider font-semibold">Department</span>
+                          <span className="font-medium text-foreground">{selectedUser.department?.name || 'Unassigned'}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-semibold mb-2 pb-2 border-b">
+                          Leave Balances ({new Date().getFullYear()})
+                        </h4>
+                        
+                        {(!selectedUser.leaveBalances || selectedUser.leaveBalances.length === 0) ? (
+                          <p className="text-sm text-muted-foreground py-4 text-center">
+                            No leave balances found for this year.
+                          </p>
+                        ) : (
+                          <div className="flex flex-col">
+                            {selectedUser.leaveBalances.map(balance => {
+                              const remaining = balance.totalDays - balance.usedDays;
+                              
+                              return (
+                                <div key={balance.id} className="flex items-center justify-between py-3 border-b last:border-0">
+                                  <div>
+                                    <span className="font-medium text-sm block">{balance.leaveType.name}</span>
+                                    <span className="text-xs text-muted-foreground mt-0.5 block">{balance.usedDays} used out of {balance.totalDays}</span>
+                                    </div>
+                                  <div className="text-right shrink-0 flex items-center gap-4">
+                                    <div className="text-right">
+                                      <span className="text-2xl font-semibold tracking-tight text-foreground">{remaining}</span>
+                                    </div>
+                                    {isAdmin && (
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                        onClick={() => openAdjustLeave(balance)}
+                                        title="Adjust Leave Balance"
+                                      >
+                                        <Edit2 className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'timeline' && (
+                    <div className="animate-in fade-in slide-in-from-right-2 duration-300 pt-2 h-[450px] flex flex-col">
                       <UserActivityTimeline userId={selectedUser.id} />
                     </div>
-                  </div>
+                  )}
                 </div>
               </>
             )}
