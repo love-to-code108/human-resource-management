@@ -221,7 +221,29 @@ export function LeaveManagement() {
                     </div>
                   </div>
 
-                  <div className="space-y-6">
+                  {/* Override Alert Banner */}
+                  {leave.overrideReason && (() => {
+                    const overrideLog = leave.auditLogs?.find(log => log.action === 'PROPOSED_DATES');
+                    const actorName = overrideLog?.actor?.name || 'A manager';
+                    const overrideDate = overrideLog ? format(new Date(overrideLog.createdAt), 'MMM d, yyyy') : 'an unknown date';
+                    return (
+                      <div className="flex gap-3 p-4 rounded-lg border border-destructive/30 bg-destructive/5 items-start mt-6">
+                        <AlertCircle className="w-5 h-5 text-destructive mt-0.5 shrink-0" />
+                        <div className="space-y-1 w-full mt-0.5">
+                          <h4 className="text-sm font-semibold text-destructive">Quota Override Granted</h4>
+                          <div className="text-[13px] text-foreground/80 leading-tight">
+                            This request exceeds the available leave balance.<br />
+                            Override authorized by <span className="font-medium text-foreground">{actorName}</span> on {overrideDate}:
+                          </div>
+                          <div className="text-[13px] text-foreground/90 italic pl-3 border-l-2 border-destructive/40 py-0.5 mt-2.5">
+                            "{leave.overrideReason}"
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="space-y-6 mt-6">
                     {/* Requested Dates */}
                     <div>
                       <h4 className="text-sm font-medium text-muted-foreground mb-2">Requested Dates</h4>
