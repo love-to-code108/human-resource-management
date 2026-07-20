@@ -257,7 +257,9 @@ export default function SignupPage() {
                   <Label>Department</Label>
                   <Select value={formData.departmentId} onValueChange={(val) => handleSelectChange('departmentId', val)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select your department" />
+                      <SelectValue placeholder="Select your department">
+                        {formData.departmentId ? departments.find(d => d.id === formData.departmentId)?.name : "Select your department"}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {departments.map(d => (
@@ -271,7 +273,9 @@ export default function SignupPage() {
                   <Label>Designation</Label>
                   <Select value={formData.designationId} onValueChange={(val) => handleSelectChange('designationId', val)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select your designation" />
+                      <SelectValue placeholder="Select your designation">
+                        {formData.designationId ? designations.find(d => d.id === formData.designationId)?.name : "Select your designation"}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {designations.map(d => (

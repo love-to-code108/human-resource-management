@@ -492,3 +492,16 @@ export async function resetAllLeaveBalances() {
     return { error: 'Failed to reset leave balances.' };
   }
 }
+
+export async function getUserByEmail(email) {
+  try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { error: 'Unauthorized.' };
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return { error: 'User not found.' };
+    return { success: true, user };
+  } catch (error) {
+    console.error('Error fetching user by email:', error);
+    return { error: 'Failed to fetch user.' };
+  }
+}

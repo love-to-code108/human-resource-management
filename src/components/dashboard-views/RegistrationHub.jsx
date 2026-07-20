@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getSignupSettings, updateSignupSettings, getPendingRegistrations, approveRegistration, rejectRegistration } from '@/app/actions/registration';
+import { getSignupSettings, updateSignupSettings, getPendingRegistrations, approveRegistration, rejectRegistration, deleteRegistration } from '@/app/actions/registration';
 import { getDepartments } from '@/app/actions/department';
 import { getDesignations } from '@/app/actions/designation';
-import { Loader2, ShieldCheck, RefreshCw, CheckCircle2, XCircle, Search, Briefcase, Building2, Users } from 'lucide-react';
+import { getUserByEmail, editUser } from '@/app/actions/userManagement';
+import { Loader2, ShieldCheck, RefreshCw, CheckCircle2, XCircle, Search, Briefcase, Building2, Users, Edit2, Trash2, AlertCircle, UserPlus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -67,6 +68,14 @@ export function RegistrationHub() {
   // Reject Dialog
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [selectedRegForRejection, setSelectedRegForRejection] = useState(null);
+
+  // Edit Dialog
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState({ name: '', email: '', password: '', departmentId: '', designationId: '' });
+  const [userToEdit, setUserToEdit] = useState(null);
+
+  // Delete Confirm
+  const [regToDelete, setRegToDelete] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -162,6 +171,53 @@ export function RegistrationHub() {
       loadData();
     } else {
       toast.error('Failed to reject registration.');
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditClick = async (reg) => {
+    setIsLoading(true);
+    const res = await getUserByEmail(reg.email);
+    setIsLoading(false);
+    if (res.success && res.user) {
+      setUserToEdit(res.user);
+      setEditFormData({
+        name: res.user.name || '',
+        email: res.user.email || '',
+        password: res.user.password || '',
+        departmentId: res.user.departmentId || '',
+        designationId: res.user.designationId || ''
+      });
+      setIsEditDialogOpen(true);
+    } else {
+      toast.error('Could not find user account. They may have been deleted.');
+    }
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    const res = await editUser(userToEdit.id, editFormData);
+    if (res.success) {
+      toast.success('User updated successfully');
+      setIsEditDialogOpen(false);
+      loadData();
+    } else {
+      toast.error(res.error || 'Failed to update user');
+      setIsLoading(false);
+    }
+  };
+
+  const confirmDeleteReg = async () => {
+    if (!regToDelete) return;
+    setIsLoading(true);
+    const res = await deleteRegistration(regToDelete.id);
+    if (res.success) {
+      toast.success('Registration record deleted successfully.');
+      setRegToDelete(null);
+      loadData();
+    } else {
+      toast.error(res.error || 'Failed to delete registration.');
       setIsLoading(false);
     }
   };
@@ -298,8 +354,25 @@ export function RegistrationHub() {
                           <Button size="sm" variant="outline" className="h-8 border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleRejectClick(reg)}>
                             <XCircle className="w-4 h-4 mr-1" /> Reject
                           </Button>
-                          <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700" onClick={() => handleApproveClick(reg)}>
+                          <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleApproveClick(reg)}>
                             <CheckCircle2 className="w-4 h-4 mr-1" /> Approve
+                          </Button>
+                        </div>
+                      )}
+                      {reg.status === 'APPROVED' && (
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => handleEditClick(reg)} className="text-muted-foreground hover:text-foreground hover:bg-transparent" title="Edit User">
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => setRegToDelete(reg)} className="text-destructive hover:text-destructive hover:bg-destructive/10" title="Delete Record">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      )}
+                      {reg.status === 'REJECTED' && (
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => setRegToDelete(reg)} className="text-destructive hover:text-destructive hover:bg-destructive/10" title="Delete Record">
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       )}
@@ -317,13 +390,14 @@ export function RegistrationHub() {
             <DialogHeader>
               <DialogTitle>Approve Registration</DialogTitle>
             </DialogHeader>
-            <div className="py-2">
+            <form onSubmit={handleApproveSubmit} className="space-y-4 py-4">
               <p className="text-sm text-muted-foreground mb-4">
                 Please verify and assign a department and designation for <strong>{selectedRegForApproval?.name}</strong> before approving.
               </p>
-              <form onSubmit={handleApproveSubmit} className="space-y-4">
+              
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Department</label>
+                  <label className="text-sm font-medium">Department <span className="text-destructive">*</span></label>
                   <Select value={approveForm.departmentId} onValueChange={(val) => setApproveForm({...approveForm, departmentId: val})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select Department">
@@ -337,8 +411,9 @@ export function RegistrationHub() {
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Designation</label>
+                  <label className="text-sm font-medium">Designation <span className="text-destructive">*</span></label>
                   <Select value={approveForm.designationId} onValueChange={(val) => setApproveForm({...approveForm, designationId: val})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select Designation">
@@ -352,12 +427,16 @@ export function RegistrationHub() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="pt-4 flex justify-end gap-2">
-                  <Button type="button" variant="ghost" onClick={() => setIsApproveDialogOpen(false)}>Cancel</Button>
-                  <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">Approve & Add User</Button>
-                </div>
-              </form>
-            </div>
+              </div>
+
+              <div className="pt-4 flex justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={() => setIsApproveDialogOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={isLoading} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                  {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Approve & Add User
+                </Button>
+              </div>
+            </form>
           </DialogContent>
         </Dialog>
 
@@ -378,6 +457,109 @@ export function RegistrationHub() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Delete Registration Confirm Dialog */}
+        <AlertDialog open={!!regToDelete} onOpenChange={(open) => !open && setRegToDelete(null)}>
+          <AlertDialogContent className="border-border/50 shadow-md bg-card dark:bg-zinc-900/90 backdrop-blur-sm">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the registration record for <strong>{regToDelete?.name}</strong>.
+                {regToDelete?.status === 'APPROVED' && (
+                  <span className="block mt-2 font-medium text-destructive">
+                    <AlertCircle className="w-4 h-4 inline mr-1 mb-0.5" />
+                    Warning: Since this user is APPROVED, this will also delete their User Account entirely.
+                  </span>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteReg} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Yes, delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Edit User Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[425px] border-border/50 shadow-md bg-card dark:bg-zinc-900/90 backdrop-blur-sm">
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleEditSubmit} className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Name</label>
+                <Input 
+                  value={editFormData.name} 
+                  onChange={(e) => setEditFormData({...editFormData, name: e.target.value})} 
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Email</label>
+                <Input 
+                  type="email"
+                  value={editFormData.email} 
+                  onChange={(e) => setEditFormData({...editFormData, email: e.target.value})} 
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Password</label>
+                <Input 
+                  type="password"
+                  placeholder="Leave blank to keep current"
+                  value={editFormData.password} 
+                  onChange={(e) => setEditFormData({...editFormData, password: e.target.value})} 
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Department</label>
+                <Select value={editFormData.departmentId} onValueChange={(val) => setEditFormData({...editFormData, departmentId: val})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Department">
+                      {departments.find(d => d.id === editFormData.departmentId)?.name || 'Select Department'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map(d => (
+                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Designation</label>
+                <Select value={editFormData.designationId} onValueChange={(val) => setEditFormData({...editFormData, designationId: val})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Designation">
+                      {designations.find(d => d.id === editFormData.designationId)?.name || 'Select Designation'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {designations.map(d => (
+                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="pt-4 flex justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
 
       </div>
     </div>

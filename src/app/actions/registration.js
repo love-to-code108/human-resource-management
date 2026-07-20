@@ -229,3 +229,29 @@ export async function rejectRegistration(id) {
     return { error: 'Failed to reject registration.' };
   }
 }
+
+// Admin: Delete Registration
+export async function deleteRegistration(id) {
+  try {
+    const session = await getSession();
+    if (!session?.isAdmin) return { error: 'Unauthorized.' };
+
+    const pending = await prisma.pendingRegistration.findUnique({ where: { id } });
+    if (!pending) return { error: 'Registration not found.' };
+
+    if (pending.status === 'APPROVED') {
+      const user = await prisma.user.findUnique({ where: { email: pending.email } });
+      if (user) {
+        await prisma.user.delete({ where: { id: user.id } });
+      }
+    }
+
+    await prisma.pendingRegistration.delete({ where: { id } });
+
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting registration:', error);
+    return { error: 'Failed to delete registration.' };
+  }
+}
