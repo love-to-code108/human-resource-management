@@ -271,13 +271,17 @@ export async function getManagerApprovals() {
         pendingAtNodes: {
           some: { id: userNode.id }
         },
-        status: { in: ['PENDING'] } // We only show PENDING in the manager queue. If NEGOTIATING, it's back with the applicant.
+        status: { in: ['PENDING', 'APPROVED'] } // Observers see APPROVED leaves in their queue waiting for acknowledgment
       },
       include: {
         applicant: {
           include: {
             designation: true,
-            department: true
+            department: true,
+            leaveBalances: {
+              where: { year: new Date().getFullYear() },
+              include: { leaveType: true }
+            }
           }
         },
         leaveType: true,
@@ -336,21 +340,55 @@ export async function approveLeave(leaveId) {
     const nextParents = managerNode.parents;
     
     if (nextParents && nextParents.length > 0) {
-      // Still needs approval higher up
-      await prisma.leaveRequest.update({
-        where: { id: leaveId },
-        data: { 
-          // Disconnect all current nodes
-          pendingAtNodes: { set: [] },
+      // Check if ALL next parents are observers
+      const allObservers = nextParents.every(p => p.isObserver);
+
+      if (allObservers) {
+        // Auto-approve and route to observers
+        await prisma.leaveRequest.update({
+          where: { id: leaveId },
+          data: { 
+            status: 'APPROVED',
+            pendingAtNodes: { set: nextParents.map(p => ({ id: p.id })) },
+          }
+        });
+        
+        // Deduct balance since it is now fully approved
+        const requestedDays = Math.ceil((new Date(leave.toDate) - new Date(leave.fromDate)) / (1000 * 60 * 60 * 24)) + 1;
+        
+        const balance = await prisma.leaveBalance.findUnique({
+          where: {
+            userId_leaveTypeId_year: {
+              userId: leave.applicantId,
+              leaveTypeId: leave.leaveTypeId,
+              year: new Date().getFullYear()
+            }
+          }
+        });
+        
+        if (balance) {
+          await prisma.leaveBalance.update({
+            where: { id: balance.id },
+            data: { usedDays: balance.usedDays + requestedDays }
+          });
         }
-      });
-      // Connect new parents
-      await prisma.leaveRequest.update({
-        where: { id: leaveId },
-        data: {
-          pendingAtNodes: { connect: nextParents.map(p => ({ id: p.id })) }
-        }
-      });
+      } else {
+        // Still needs approval higher up
+        await prisma.leaveRequest.update({
+          where: { id: leaveId },
+          data: { 
+            // Disconnect all current nodes
+            pendingAtNodes: { set: [] },
+          }
+        });
+        // Connect new parents
+        await prisma.leaveRequest.update({
+          where: { id: leaveId },
+          data: {
+            pendingAtNodes: { connect: nextParents.map(p => ({ id: p.id })) }
+          }
+        });
+      }
     } else {
       // Final approval
       await prisma.leaveRequest.update({
@@ -399,6 +437,50 @@ export async function approveLeave(leaveId) {
   }
 }
 
+export async function acknowledgeLeave(leaveId) {
+  try {
+    const session = await getSession();
+    if (!session?.userId) return { error: 'Not authenticated' };
+
+    const leave = await prisma.leaveRequest.findUnique({
+      where: { id: leaveId },
+      include: { pendingAtNodes: true }
+    });
+
+    if (!leave) return { error: 'Leave request not found.' };
+
+    const user = await prisma.user.findUnique({ where: { id: session.userId } });
+    const managerNode = await prisma.hierarchyNode.findUnique({
+      where: { departmentId_designationId: { departmentId: user.departmentId, designationId: user.designationId } }
+    });
+
+    if (!managerNode) return { error: 'Your role is not mapped.' };
+
+    // Remove this node from pendingAtNodes
+    await prisma.leaveRequest.update({
+      where: { id: leaveId },
+      data: {
+        pendingAtNodes: { disconnect: { id: managerNode.id } }
+      }
+    });
+
+    await prisma.leaveAuditLog.create({
+      data: {
+        leaveRequestId: leaveId,
+        action: 'ACKNOWLEDGED',
+        actorId: session.userId,
+        nodeId: managerNode.id
+      }
+    });
+
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error acknowledging leave:', error);
+    return { error: 'Failed to acknowledge leave.' };
+  }
+}
+
 export async function rejectLeave(leaveId) {
   try {
     const session = await getSession();
@@ -431,7 +513,7 @@ export async function rejectLeave(leaveId) {
   }
 }
 
-export async function proposeNewDates(leaveId, fromDate, toDate) {
+export async function proposeNewDates(leaveId, fromDate, toDate, overrideReason) {
   try {
     const session = await getSession();
     if (!session?.userId) return { error: 'Not authenticated' };
@@ -441,12 +523,34 @@ export async function proposeNewDates(leaveId, fromDate, toDate) {
       where: { departmentId_designationId: { departmentId: user.departmentId, designationId: user.designationId } }
     });
 
+    const leave = await prisma.leaveRequest.findUnique({ where: { id: leaveId } });
+    if (!leave) return { error: 'Leave request not found.' };
+
+    const requestedDays = Math.ceil((new Date(toDate) - new Date(fromDate)) / (1000 * 60 * 60 * 24)) + 1;
+    
+    const balance = await prisma.leaveBalance.findUnique({
+      where: {
+        userId_leaveTypeId_year: {
+          userId: leave.applicantId,
+          leaveTypeId: leave.leaveTypeId,
+          year: new Date().getFullYear()
+        }
+      }
+    });
+
+    const remainingBalance = balance ? balance.totalDays - balance.usedDays : 0;
+
+    if (requestedDays > remainingBalance && !overrideReason) {
+      return { error: `Proposed duration (${requestedDays} days) exceeds available balance (${remainingBalance} days). An override reason is required.` };
+    }
+
     await prisma.leaveRequest.update({
       where: { id: leaveId },
       data: { 
         status: 'NEGOTIATING',
         managerSuggestedFromDate: new Date(fromDate),
-        managerSuggestedToDate: new Date(toDate)
+        managerSuggestedToDate: new Date(toDate),
+        overrideReason: overrideReason || null
       }
     });
 

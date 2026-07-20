@@ -17,6 +17,10 @@ export async function getSubordinates() {
           leaveBalances: {
             include: { leaveType: true },
             where: { year: new Date().getFullYear() }
+          },
+          leavesApplied: {
+            include: { leaveType: true },
+            orderBy: { createdAt: 'desc' }
           }
         },
         orderBy: { name: 'asc' }
@@ -78,6 +82,10 @@ export async function getSubordinates() {
         leaveBalances: {
           include: { leaveType: true },
           where: { year: new Date().getFullYear() }
+        },
+        leavesApplied: {
+          include: { leaveType: true },
+          orderBy: { createdAt: 'desc' }
         }
       },
       orderBy: { name: 'asc' }

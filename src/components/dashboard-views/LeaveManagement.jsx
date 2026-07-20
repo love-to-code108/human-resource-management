@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getManagerApprovals, approveLeave, rejectLeave, proposeNewDates } from '@/app/actions/leave';
-import { Loader2, Calendar, Check, X, Clock, ArrowRight } from 'lucide-react';
+import { getManagerApprovals, approveLeave, rejectLeave, proposeNewDates, acknowledgeLeave } from '@/app/actions/leave';
+import { Loader2, Calendar, Check, X, Clock, ArrowRight, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { LeaveStatusTracker } from './LeaveStatusTracker';
 
 export function LeaveManagement() {
@@ -50,6 +51,7 @@ export function LeaveManagement() {
   const [proposingFor, setProposingFor] = useState(null);
   const [newFromDate, setNewFromDate] = useState();
   const [newToDate, setNewToDate] = useState();
+  const [overrideReason, setOverrideReason] = useState('');
 
   // Confirmation States
   const [approveConfirmId, setApproveConfirmId] = useState(null);
@@ -96,6 +98,18 @@ export function LeaveManagement() {
     setRejectConfirmId(null);
   };
 
+  const handleAcknowledge = async (leaveId) => {
+    setProcessingId(leaveId);
+    const res = await acknowledgeLeave(leaveId);
+    if (res.success) {
+      toast.success("Leave acknowledged.");
+      await loadLeaves();
+    } else {
+      toast.error(res.error);
+    }
+    setProcessingId(null);
+  };
+
   const handleProposeSubmit = async (e) => {
     e.preventDefault();
     if (!newFromDate || !newToDate) {
@@ -109,13 +123,14 @@ export function LeaveManagement() {
     }
 
     setProcessingId(proposingFor.id);
-    const res = await proposeNewDates(proposingFor.id, newFromDate.toISOString(), newToDate.toISOString());
+    const res = await proposeNewDates(proposingFor.id, newFromDate.toISOString(), newToDate.toISOString(), overrideReason);
     if (res.success) {
       toast.success("Alternative dates proposed to applicant.");
       setIsProposeOpen(false);
       setProposingFor(null);
       setNewFromDate(undefined);
       setNewToDate(undefined);
+      setOverrideReason('');
       await loadLeaves();
     } else {
       toast.error(res.error);
@@ -127,8 +142,22 @@ export function LeaveManagement() {
     setProposingFor(leave);
     setNewFromDate(new Date(leave.fromDate));
     setNewToDate(new Date(leave.toDate));
+    setOverrideReason('');
     setIsProposeOpen(true);
   };
+
+  let availableBalance = 0;
+  if (proposingFor && proposingFor.applicant.leaveBalances) {
+    const balance = proposingFor.applicant.leaveBalances.find(b => b.leaveType.id === proposingFor.leaveTypeId);
+    if (balance) availableBalance = balance.totalDays - balance.usedDays;
+  }
+
+  let proposedDays = 0;
+  if (newFromDate && newToDate) {
+    proposedDays = Math.ceil((newToDate - newFromDate) / (1000 * 60 * 60 * 24)) + 1;
+  }
+
+  const isOverrideRequired = proposedDays > availableBalance;
 
   return (
     <div className="flex-1 p-6 lg:p-10 animate-in fade-in duration-500 h-full overflow-y-auto">
@@ -231,30 +260,43 @@ export function LeaveManagement() {
                   </div>
 
                   <div className="pt-4 mt-2 flex flex-wrap items-center justify-end gap-3 border-t border-border/50 border-dashed">
-                    <Button 
-                      variant="outline"
-                      onClick={() => openProposeDialog(leave)}
-                      disabled={processingId === leave.id}
-                    >
-                      <Clock className="w-4 h-4 mr-2" />
-                      Propose Dates
-                    </Button>
-                    <Button 
-                      variant="destructive"
-                      onClick={() => setRejectConfirmId(leave.id)}
-                      disabled={processingId === leave.id}
-                    >
-                      <X className="w-4 h-4 mr-2" />
-                      Reject
-                    </Button>
-                    <Button 
-                      onClick={() => setApproveConfirmId(leave.id)}
-                      disabled={processingId === leave.id}
-                      className="bg-emerald-700 hover:bg-emerald-800 text-white"
-                    >
-                      {processingId === leave.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-                      Approve
-                    </Button>
+                    {leave.status === 'APPROVED' ? (
+                      <Button 
+                        onClick={() => handleAcknowledge(leave.id)}
+                        disabled={processingId === leave.id}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        {processingId === leave.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                        Acknowledge
+                      </Button>
+                    ) : (
+                      <>
+                        <Button 
+                          variant="outline"
+                          onClick={() => openProposeDialog(leave)}
+                          disabled={processingId === leave.id}
+                        >
+                          <Clock className="w-4 h-4 mr-2" />
+                          Propose Dates
+                        </Button>
+                        <Button 
+                          variant="destructive"
+                          onClick={() => setRejectConfirmId(leave.id)}
+                          disabled={processingId === leave.id}
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Reject
+                        </Button>
+                        <Button 
+                          onClick={() => setApproveConfirmId(leave.id)}
+                          disabled={processingId === leave.id}
+                          className="bg-emerald-700 hover:bg-emerald-800 text-white"
+                        >
+                          {processingId === leave.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                          Approve
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -332,13 +374,34 @@ export function LeaveManagement() {
                     </PopoverContent>
                   </Popover>
                 </div>
+
+                {isOverrideRequired && (
+                  <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md border border-destructive/20 flex flex-col gap-2 mt-2">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                      <p>
+                        <strong>Balance Exceeded:</strong> You are proposing {proposedDays} days, but the applicant only has {availableBalance} days of {proposingFor?.leaveType.name} remaining. 
+                      </p>
+                    </div>
+                    <div className="space-y-1.5 mt-2">
+                      <Label className="text-destructive font-semibold">Override Justification Required</Label>
+                      <Textarea 
+                        placeholder="Please explain why you are granting extra leave days..."
+                        value={overrideReason}
+                        onChange={(e) => setOverrideReason(e.target.value)}
+                        className="bg-background border-destructive/30 focus-visible:ring-destructive"
+                        required={isOverrideRequired}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => setIsProposeOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={processingId === proposingFor?.id}>
+                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={processingId === proposingFor?.id || (isOverrideRequired && !overrideReason.trim())}>
                   {processingId === proposingFor?.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                   Send Proposal
                 </Button>
