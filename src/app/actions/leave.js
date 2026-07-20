@@ -138,6 +138,13 @@ export async function getMyLeaves() {
       where: { applicantId: session.userId },
       include: {
         leaveType: true,
+        applicant: {
+          include: {
+            leaveBalances: {
+              where: { year: new Date().getFullYear() },
+            }
+          }
+        },
         pendingAtNodes: {
           include: {
             designation: true,
