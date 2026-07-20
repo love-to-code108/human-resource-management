@@ -4,8 +4,11 @@ import { useState, useEffect } from 'react';
 import { getManagerApprovals, approveLeave, rejectLeave, proposeNewDates } from '@/app/actions/leave';
 import { Loader2, Calendar, Check, X, Clock, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
   Card,
   CardContent,
@@ -45,8 +48,8 @@ export function LeaveManagement() {
   // Propose Dates State
   const [isProposeOpen, setIsProposeOpen] = useState(false);
   const [proposingFor, setProposingFor] = useState(null);
-  const [newFromDate, setNewFromDate] = useState('');
-  const [newToDate, setNewToDate] = useState('');
+  const [newFromDate, setNewFromDate] = useState();
+  const [newToDate, setNewToDate] = useState();
 
   // Confirmation States
   const [approveConfirmId, setApproveConfirmId] = useState(null);
@@ -100,19 +103,19 @@ export function LeaveManagement() {
       return;
     }
     
-    if (new Date(newFromDate) > new Date(newToDate)) {
+    if (newFromDate > newToDate) {
       toast.error("From Date cannot be after To Date.");
       return;
     }
 
     setProcessingId(proposingFor.id);
-    const res = await proposeNewDates(proposingFor.id, newFromDate, newToDate);
+    const res = await proposeNewDates(proposingFor.id, newFromDate.toISOString(), newToDate.toISOString());
     if (res.success) {
       toast.success("Alternative dates proposed to applicant.");
       setIsProposeOpen(false);
       setProposingFor(null);
-      setNewFromDate('');
-      setNewToDate('');
+      setNewFromDate(undefined);
+      setNewToDate(undefined);
       await loadLeaves();
     } else {
       toast.error(res.error);
@@ -122,8 +125,8 @@ export function LeaveManagement() {
 
   const openProposeDialog = (leave) => {
     setProposingFor(leave);
-    setNewFromDate(format(new Date(leave.fromDate), 'yyyy-MM-dd'));
-    setNewToDate(format(new Date(leave.toDate), 'yyyy-MM-dd'));
+    setNewFromDate(new Date(leave.fromDate));
+    setNewToDate(new Date(leave.toDate));
     setIsProposeOpen(true);
   };
 
@@ -278,24 +281,56 @@ export function LeaveManagement() {
               
               <div className="grid gap-4 py-6">
                 <div className="grid gap-2">
-                  <Label htmlFor="fromDate">Suggested Start Date</Label>
-                  <Input 
-                    id="fromDate" 
-                    type="date" 
-                    value={newFromDate}
-                    onChange={(e) => setNewFromDate(e.target.value)}
-                    required
-                  />
+                  <Label>Suggested Start Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal bg-background",
+                          !newFromDate && "text-muted-foreground"
+                        )}
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {newFromDate ? format(newFromDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 border-border/50 shadow-md">
+                      <CalendarComponent
+                        mode="single"
+                        selected={newFromDate}
+                        onSelect={setNewFromDate}
+                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="toDate">Suggested End Date</Label>
-                  <Input 
-                    id="toDate" 
-                    type="date" 
-                    value={newToDate}
-                    onChange={(e) => setNewToDate(e.target.value)}
-                    required
-                  />
+                  <Label>Suggested End Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal bg-background",
+                          !newToDate && "text-muted-foreground"
+                        )}
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {newToDate ? format(newToDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 border-border/50 shadow-md">
+                      <CalendarComponent
+                        mode="single"
+                        selected={newToDate}
+                        onSelect={setNewToDate}
+                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
 
