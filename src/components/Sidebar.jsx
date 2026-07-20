@@ -10,6 +10,8 @@ import {
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -37,44 +39,86 @@ import { logoutAction } from '@/app/actions/auth';
 import { useRouter } from 'next/navigation';
 
 function ResetLeavesButton({ trigger }) {
-  const [open, setOpen] = useState(false);
+  const [openLevel1, setOpenLevel1] = useState(false);
+  const [openLevel2, setOpenLevel2] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
 
   const handleReset = async (e) => {
     e.preventDefault();
+    if (confirmText.toLowerCase() !== 'reset all leaves') return;
+    
     setIsResetting(true);
     const res = await resetAllLeaveBalances();
     setIsResetting(false);
     if (res.success) {
       toast.success('All leave balances have been reset successfully.');
-      setOpen(false);
+      setOpenLevel2(false);
+      setOpenLevel1(false);
+      setConfirmText('');
     } else {
       toast.error(res.error || 'Failed to reset leave balances.');
     }
   };
 
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger asChild>
-        {trigger}
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Reset All Leave Balances?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This will reset every user's leave balance to their base allocated days for the current year. 
-            All manual balance adjustments will be wiped (or tracked as a system reset). 
-            This action cannot be undone. Are you sure you want to proceed?
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isResetting}>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={handleReset} disabled={isResetting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-            {isResetting ? 'Resetting...' : 'Yes, Reset All'}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <>
+      <AlertDialog open={openLevel1} onOpenChange={setOpenLevel1}>
+        <AlertDialogTrigger asChild>
+          {trigger}
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will reset every user's leave balance to their base allocated days for the current year. 
+              Are you sure you want to proceed?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button onClick={() => {
+              setOpenLevel1(false);
+              setOpenLevel2(true);
+            }}>Yes, Proceed</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={openLevel2} onOpenChange={(open) => {
+        setOpenLevel2(open);
+        if (!open) setConfirmText('');
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">Are you 100% sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be reverted. All manual balance adjustments will be wiped (or tracked as a system reset).
+              <br/><br/>
+              Please type <strong className="text-foreground">reset all leaves</strong> below to confirm.
+            </AlertDialogDescription>
+            <div className="pt-2">
+              <Input 
+                value={confirmText} 
+                onChange={(e) => setConfirmText(e.target.value)} 
+                placeholder="reset all leaves"
+                className="w-full"
+              />
+            </div>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmText('')} disabled={isResetting}>Cancel</AlertDialogCancel>
+            <Button 
+              variant="destructive" 
+              onClick={handleReset} 
+              disabled={isResetting || confirmText.toLowerCase() !== 'reset all leaves'}
+            >
+              {isResetting ? 'Resetting...' : 'Yes, Reset All'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -165,7 +209,6 @@ export function Sidebar({ isAdmin, isManager, userName, userEmail, userAvatar })
               <AddLeaveTypeDialog trigger={<SidebarItem icon={CalendarPlus} label="Add Leave Type" />} />
               <NavItem viewId="hierarchy" icon={Network} label="Hierarchy Mapper" />
               <NavItem viewId="registration" icon={UserCog} label="Registration Hub" />
-              <div className="h-px bg-border my-2 mx-2 opacity-50" />
               <ResetLeavesButton trigger={<SidebarItem icon={RefreshCcw} label="Reset All Leaves" className="text-destructive hover:text-destructive hover:bg-destructive/10 font-medium" />} />
             </div>
           </div>
