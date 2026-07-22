@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getManagerApprovals, approveLeave, rejectLeave, proposeNewDates } from '@/app/actions/leave';
-import { Loader2, Calendar, Check, X, Clock, ArrowRight } from 'lucide-react';
+import { getManagerApprovals, approveLeave, rejectLeave, proposeNewDates, acknowledgeLeave } from '@/app/actions/leave';
+import { Loader2, Calendar, Check, X, Clock, ArrowRight, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
   Card,
   CardContent,
@@ -35,6 +38,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { LeaveStatusTracker } from './LeaveStatusTracker';
 
 export function LeaveManagement() {
@@ -45,8 +49,9 @@ export function LeaveManagement() {
   // Propose Dates State
   const [isProposeOpen, setIsProposeOpen] = useState(false);
   const [proposingFor, setProposingFor] = useState(null);
-  const [newFromDate, setNewFromDate] = useState('');
-  const [newToDate, setNewToDate] = useState('');
+  const [newFromDate, setNewFromDate] = useState();
+  const [newToDate, setNewToDate] = useState();
+  const [overrideReason, setOverrideReason] = useState('');
 
   // Confirmation States
   const [approveConfirmId, setApproveConfirmId] = useState(null);
@@ -93,6 +98,18 @@ export function LeaveManagement() {
     setRejectConfirmId(null);
   };
 
+  const handleAcknowledge = async (leaveId) => {
+    setProcessingId(leaveId);
+    const res = await acknowledgeLeave(leaveId);
+    if (res.success) {
+      toast.success("Leave acknowledged.");
+      await loadLeaves();
+    } else {
+      toast.error(res.error);
+    }
+    setProcessingId(null);
+  };
+
   const handleProposeSubmit = async (e) => {
     e.preventDefault();
     if (!newFromDate || !newToDate) {
@@ -100,19 +117,20 @@ export function LeaveManagement() {
       return;
     }
     
-    if (new Date(newFromDate) > new Date(newToDate)) {
+    if (newFromDate > newToDate) {
       toast.error("From Date cannot be after To Date.");
       return;
     }
 
     setProcessingId(proposingFor.id);
-    const res = await proposeNewDates(proposingFor.id, newFromDate, newToDate);
+    const res = await proposeNewDates(proposingFor.id, newFromDate.toISOString(), newToDate.toISOString(), overrideReason);
     if (res.success) {
       toast.success("Alternative dates proposed to applicant.");
       setIsProposeOpen(false);
       setProposingFor(null);
-      setNewFromDate('');
-      setNewToDate('');
+      setNewFromDate(undefined);
+      setNewToDate(undefined);
+      setOverrideReason('');
       await loadLeaves();
     } else {
       toast.error(res.error);
@@ -122,10 +140,24 @@ export function LeaveManagement() {
 
   const openProposeDialog = (leave) => {
     setProposingFor(leave);
-    setNewFromDate(format(new Date(leave.fromDate), 'yyyy-MM-dd'));
-    setNewToDate(format(new Date(leave.toDate), 'yyyy-MM-dd'));
+    setNewFromDate(new Date(leave.fromDate));
+    setNewToDate(new Date(leave.toDate));
+    setOverrideReason('');
     setIsProposeOpen(true);
   };
+
+  let availableBalance = 0;
+  if (proposingFor && proposingFor.applicant.leaveBalances) {
+    const balance = proposingFor.applicant.leaveBalances.find(b => b.leaveType.id === proposingFor.leaveTypeId);
+    if (balance) availableBalance = balance.totalDays - balance.usedDays;
+  }
+
+  let proposedDays = 0;
+  if (newFromDate && newToDate) {
+    proposedDays = Math.ceil((newToDate - newFromDate) / (1000 * 60 * 60 * 24)) + 1;
+  }
+
+  const isOverrideRequired = proposedDays > availableBalance;
 
   return (
     <div className="flex-1 p-6 lg:p-10 animate-in fade-in duration-500 h-full overflow-y-auto">
@@ -189,7 +221,48 @@ export function LeaveManagement() {
                     </div>
                   </div>
 
-                  <div className="space-y-6">
+                  {/* Override Alert Banner */}
+                  {(() => {
+                    const balance = leave.applicant?.leaveBalances?.find(b => b.leaveTypeId === leave.leaveTypeId);
+                    const isQuotaExceeded = balance ? balance.usedDays > balance.totalDays : false;
+
+                    if (leave.overrideReason) {
+                      const overrideLog = leave.auditLogs?.find(log => log.action === 'PROPOSED_DATES');
+                      const actorName = overrideLog?.actor?.name || 'A manager';
+                      const overrideDate = overrideLog ? format(new Date(overrideLog.createdAt), 'MMM d, yyyy') : 'an unknown date';
+                      return (
+                        <div className="flex gap-3 p-4 rounded-lg border border-destructive/30 bg-destructive/5 items-start mt-6">
+                          <AlertCircle className="w-5 h-5 text-destructive mt-0.5 shrink-0" />
+                          <div className="space-y-1 w-full mt-0.5">
+                            <h4 className="text-sm font-semibold text-destructive">Quota Override Granted</h4>
+                            <div className="text-[13px] text-foreground/80 leading-tight">
+                              This request exceeds the available leave balance.<br />
+                              Override authorized by <span className="font-medium text-foreground">{actorName}</span> on {overrideDate}:
+                            </div>
+                            <div className="text-[13px] text-foreground/90 italic pl-3 border-l-2 border-destructive/40 py-0.5 mt-2.5">
+                              "{leave.overrideReason}"
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    } else if (isQuotaExceeded) {
+                      return (
+                        <div className="flex gap-3 p-4 rounded-lg border border-amber-500/30 bg-amber-500/5 items-start mt-6">
+                          <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+                          <div className="space-y-1 w-full mt-0.5">
+                            <h4 className="text-sm font-semibold text-amber-600">Action Required: Quota Exceeded</h4>
+                            <div className="text-[13px] text-foreground/80 leading-tight">
+                              This request exceeds the applicant's available {leave.leaveType.name} balance for this year.<br />
+                              If you choose to approve it, you must provide a justification for the quota override.
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+
+                  <div className="space-y-6 mt-6">
                     {/* Requested Dates */}
                     <div>
                       <h4 className="text-sm font-medium text-muted-foreground mb-2">Requested Dates</h4>
@@ -228,30 +301,43 @@ export function LeaveManagement() {
                   </div>
 
                   <div className="pt-4 mt-2 flex flex-wrap items-center justify-end gap-3 border-t border-border/50 border-dashed">
-                    <Button 
-                      variant="outline"
-                      onClick={() => openProposeDialog(leave)}
-                      disabled={processingId === leave.id}
-                    >
-                      <Clock className="w-4 h-4 mr-2" />
-                      Propose Dates
-                    </Button>
-                    <Button 
-                      variant="destructive"
-                      onClick={() => setRejectConfirmId(leave.id)}
-                      disabled={processingId === leave.id}
-                    >
-                      <X className="w-4 h-4 mr-2" />
-                      Reject
-                    </Button>
-                    <Button 
-                      onClick={() => setApproveConfirmId(leave.id)}
-                      disabled={processingId === leave.id}
-                      className="bg-emerald-700 hover:bg-emerald-800 text-white"
-                    >
-                      {processingId === leave.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-                      Approve
-                    </Button>
+                    {leave.status === 'APPROVED' ? (
+                      <Button 
+                        onClick={() => handleAcknowledge(leave.id)}
+                        disabled={processingId === leave.id}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        {processingId === leave.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                        Acknowledge
+                      </Button>
+                    ) : (
+                      <>
+                        <Button 
+                          variant="outline"
+                          onClick={() => openProposeDialog(leave)}
+                          disabled={processingId === leave.id}
+                        >
+                          <Clock className="w-4 h-4 mr-2" />
+                          Propose Dates
+                        </Button>
+                        <Button 
+                          variant="destructive"
+                          onClick={() => setRejectConfirmId(leave.id)}
+                          disabled={processingId === leave.id}
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Reject
+                        </Button>
+                        <Button 
+                          onClick={() => setApproveConfirmId(leave.id)}
+                          disabled={processingId === leave.id}
+                          className="bg-emerald-700 hover:bg-emerald-800 text-white"
+                        >
+                          {processingId === leave.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                          Approve
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -278,32 +364,85 @@ export function LeaveManagement() {
               
               <div className="grid gap-4 py-6">
                 <div className="grid gap-2">
-                  <Label htmlFor="fromDate">Suggested Start Date</Label>
-                  <Input 
-                    id="fromDate" 
-                    type="date" 
-                    value={newFromDate}
-                    onChange={(e) => setNewFromDate(e.target.value)}
-                    required
-                  />
+                  <Label>Suggested Start Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal bg-background",
+                          !newFromDate && "text-muted-foreground"
+                        )}
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {newFromDate ? format(newFromDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 border-border/50 shadow-md">
+                      <CalendarComponent
+                        mode="single"
+                        selected={newFromDate}
+                        onSelect={setNewFromDate}
+                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="toDate">Suggested End Date</Label>
-                  <Input 
-                    id="toDate" 
-                    type="date" 
-                    value={newToDate}
-                    onChange={(e) => setNewToDate(e.target.value)}
-                    required
-                  />
+                  <Label>Suggested End Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal bg-background",
+                          !newToDate && "text-muted-foreground"
+                        )}
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {newToDate ? format(newToDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 border-border/50 shadow-md">
+                      <CalendarComponent
+                        mode="single"
+                        selected={newToDate}
+                        onSelect={setNewToDate}
+                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
+
+                {isOverrideRequired && (
+                  <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md border border-destructive/20 flex flex-col gap-2 mt-2">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                      <p>
+                        <strong>Balance Exceeded:</strong> You are proposing {proposedDays} days, but the applicant only has {availableBalance} days of {proposingFor?.leaveType.name} remaining. 
+                      </p>
+                    </div>
+                    <div className="space-y-1.5 mt-2">
+                      <Label className="text-destructive font-semibold">Override Justification Required</Label>
+                      <Textarea 
+                        placeholder="Please explain why you are granting extra leave days..."
+                        value={overrideReason}
+                        onChange={(e) => setOverrideReason(e.target.value)}
+                        className="bg-background border-destructive/30 focus-visible:ring-destructive"
+                        required={isOverrideRequired}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => setIsProposeOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={processingId === proposingFor?.id}>
+                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={processingId === proposingFor?.id || (isOverrideRequired && !overrideReason.trim())}>
                   {processingId === proposingFor?.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                   Send Proposal
                 </Button>

@@ -5,16 +5,31 @@ import { useDashboardStore } from '@/store/dashboardStore';
 import {
   Users, Building2, Briefcase, CalendarClock, Settings, LogOut, Info,
   UserPlus, CalendarPlus, Network, FileText, CheckSquare, ListTodo,
-  ChevronsUpDown, ChevronRight, GalleryVerticalEnd, History
+  ChevronsUpDown, ChevronRight, GalleryVerticalEnd, History, UserCog, RefreshCcw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
   DropdownMenuGroup
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { toast } from 'sonner';
+import { resetAllLeaveBalances } from '@/app/actions/userManagement';
 
 import { AddUserDialog } from '@/components/AddUserDialog';
 import { AddDesignationDialog } from '@/components/AddDesignationDialog';
@@ -22,6 +37,90 @@ import { AddDepartmentDialog } from '@/components/AddDepartmentDialog';
 import { AddLeaveTypeDialog } from '@/components/AddLeaveTypeDialog';
 import { logoutAction } from '@/app/actions/auth';
 import { useRouter } from 'next/navigation';
+
+function ResetLeavesButton({ trigger }) {
+  const [openLevel1, setOpenLevel1] = useState(false);
+  const [openLevel2, setOpenLevel2] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+
+  const handleReset = async (e) => {
+    e.preventDefault();
+    if (confirmText.toLowerCase() !== 'reset all leaves') return;
+    
+    setIsResetting(true);
+    const res = await resetAllLeaveBalances();
+    setIsResetting(false);
+    if (res.success) {
+      toast.success('All leave balances have been reset successfully.');
+      setOpenLevel2(false);
+      setOpenLevel1(false);
+      setConfirmText('');
+    } else {
+      toast.error(res.error || 'Failed to reset leave balances.');
+    }
+  };
+
+  return (
+    <>
+      <AlertDialog open={openLevel1} onOpenChange={setOpenLevel1}>
+        <AlertDialogTrigger asChild>
+          {trigger}
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will reset every user's leave balance to their base allocated days for the current year. 
+              Are you sure you want to proceed?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button onClick={() => {
+              setOpenLevel1(false);
+              setOpenLevel2(true);
+            }}>Yes, Proceed</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={openLevel2} onOpenChange={(open) => {
+        setOpenLevel2(open);
+        if (!open) setConfirmText('');
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">Are you 100% sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be reverted. All manual balance adjustments will be wiped (or tracked as a system reset).
+              <br/><br/>
+              Please type <strong className="text-foreground">reset all leaves</strong> below to confirm.
+            </AlertDialogDescription>
+            <div className="pt-2">
+              <Input 
+                value={confirmText} 
+                onChange={(e) => setConfirmText(e.target.value)} 
+                placeholder="reset all leaves"
+                className="w-full"
+              />
+            </div>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmText('')} disabled={isResetting}>Cancel</AlertDialogCancel>
+            <Button 
+              variant="destructive" 
+              onClick={handleReset} 
+              disabled={isResetting || confirmText.toLowerCase() !== 'reset all leaves'}
+            >
+              {isResetting ? 'Resetting...' : 'Yes, Reset All'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
 
 export function Sidebar({ isAdmin, isManager, userName, userEmail, userAvatar }) {
   const activeView = useDashboardStore((state) => state.activeView);
@@ -109,6 +208,8 @@ export function Sidebar({ isAdmin, isManager, userName, userEmail, userAvatar })
               <AddDepartmentDialog trigger={<SidebarItem icon={Building2} label="Add Department" />} />
               <AddLeaveTypeDialog trigger={<SidebarItem icon={CalendarPlus} label="Add Leave Type" />} />
               <NavItem viewId="hierarchy" icon={Network} label="Hierarchy Mapper" />
+              <NavItem viewId="registration" icon={UserCog} label="Registration Hub" />
+              <ResetLeavesButton trigger={<SidebarItem icon={RefreshCcw} label="Reset All Leaves" className="text-destructive hover:text-destructive hover:bg-destructive/10 font-medium" />} />
             </div>
           </div>
         )}
@@ -123,7 +224,7 @@ export function Sidebar({ isAdmin, isManager, userName, userEmail, userAvatar })
             </h3>
             <div className="flex flex-col gap-1 w-full">
               <NavItem viewId="leave-management" icon={CheckSquare} label="Leave Approvals" />
-              <NavItem viewId="team-leaves" icon={History} label="Team Leaves" />
+              <NavItem viewId="team-leaves" icon={History} label="Leave Archives" />
               <NavItem viewId="user-management" icon={Users} label="User Management" />
             </div>
           </div>

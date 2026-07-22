@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
 import { revalidatePath } from 'next/cache';
+import { format } from 'date-fns';
 
 export async function submitLeaveApplication(data) {
   try {
@@ -48,9 +49,8 @@ export async function submitLeaveApplication(data) {
     }
 
     const availableDays = balance.totalDays - balance.usedDays;
-    if (requestedDays > availableDays) {
-      return { error: `Insufficient balance. You requested ${requestedDays} days, but only have ${availableDays} days left.` };
-    }
+    // We no longer block submission if requestedDays > availableDays. 
+    // The frontend will warn them, but the manager can choose to override.
 
     // Find the user's position in the Hierarchy
     if (!user.departmentId || !user.designationId) {
@@ -77,12 +77,13 @@ export async function submitLeaveApplication(data) {
     // If they have no manager (e.g. they are the top of the chain), auto-approve.
     if (!parents || parents.length === 0) {
       status = 'APPROVED';
-      // Deduct balance immediately
-      await prisma.leaveBalance.update({
-        where: { id: balance.id },
-        data: { usedDays: balance.usedDays + requestedDays },
-      });
     }
+
+    // Always deduct balance immediately (Upfront Deduction)
+    await prisma.leaveBalance.update({
+      where: { id: balance.id },
+      data: { usedDays: balance.usedDays + requestedDays },
+    });
 
     // Create the Request
     const leaveRequest = await prisma.leaveRequest.create({
@@ -108,6 +109,17 @@ export async function submitLeaveApplication(data) {
       }
     });
 
+    await prisma.leaveBalanceTransaction.create({
+      data: {
+        userId: user.id,
+        leaveTypeId: leaveTypeId,
+        amount: -requestedDays,
+        reason: `Applied for ${requestedDays} days (${format(startDate, 'MMM d')} to ${format(endDate, 'MMM d')})`,
+        transactionType: 'SYSTEM_DEDUCTION',
+        leaveBalanceId: balance.id
+      }
+    });
+
     revalidatePath('/dashboard');
     return { success: true };
 
@@ -126,6 +138,13 @@ export async function getMyLeaves() {
       where: { applicantId: session.userId },
       include: {
         leaveType: true,
+        applicant: {
+          include: {
+            leaveBalances: {
+              where: { year: new Date().getFullYear() },
+            }
+          }
+        },
         pendingAtNodes: {
           include: {
             designation: true,
@@ -164,8 +183,32 @@ export async function acceptNegotiation(leaveId) {
       return { error: 'Invalid leave request or not in negotiation status.' };
     }
 
-    // When the applicant accepts, we update the dates to the manager's suggested dates, 
-    // and bump the status back to PENDING so the manager can do the final approval (or we can just auto approve it, but standard is PENDING).
+    const oldDays = Math.ceil((new Date(leave.toDate) - new Date(leave.fromDate)) / (1000 * 60 * 60 * 24)) + 1;
+    const newDays = Math.ceil((new Date(leave.managerSuggestedToDate) - new Date(leave.managerSuggestedFromDate)) / (1000 * 60 * 60 * 24)) + 1;
+    const diff = oldDays - newDays; // Positive means we refund (they are taking fewer days), negative means we deduct more (they are taking more days).
+
+    if (diff !== 0) {
+      const balance = await prisma.leaveBalance.findFirst({
+        where: { userId: leave.applicantId, leaveTypeId: leave.leaveTypeId, year: new Date(leave.fromDate).getFullYear() }
+      });
+      if (balance) {
+        await prisma.leaveBalance.update({
+          where: { id: balance.id },
+          data: { usedDays: balance.usedDays - diff } // if diff is pos, usedDays decreases (refund). If diff is neg, usedDays increases (deduct).
+        });
+        await prisma.leaveBalanceTransaction.create({
+          data: {
+            userId: leave.applicantId,
+            leaveTypeId: leave.leaveTypeId,
+            amount: diff, 
+            reason: diff > 0 ? 'Refunded difference after accepting manager proposed dates' : 'Deducted extra days for manager proposed dates',
+            transactionType: diff > 0 ? 'SYSTEM_REFUND' : 'SYSTEM_DEDUCTION',
+            leaveBalanceId: balance.id
+          }
+        });
+      }
+    }
+
     // Let's change status to PENDING so the manager can approve the new dates.
     await prisma.leaveRequest.update({
       where: { id: leaveId },
@@ -205,6 +248,28 @@ export async function withdrawLeave(leaveId) {
 
     if (!leave) return { error: 'Leave request not found.' };
 
+    const requestedDays = Math.ceil((new Date(leave.toDate) - new Date(leave.fromDate)) / (1000 * 60 * 60 * 24)) + 1;
+    const balance = await prisma.leaveBalance.findFirst({
+      where: { userId: leave.applicantId, leaveTypeId: leave.leaveTypeId, year: new Date(leave.fromDate).getFullYear() }
+    });
+
+    if (balance) {
+      await prisma.leaveBalance.update({
+        where: { id: balance.id },
+        data: { usedDays: balance.usedDays - requestedDays }
+      });
+      await prisma.leaveBalanceTransaction.create({
+        data: {
+          userId: leave.applicantId,
+          leaveTypeId: leave.leaveTypeId,
+          amount: requestedDays,
+          reason: 'Leave application withdrawn',
+          transactionType: 'SYSTEM_REFUND',
+          leaveBalanceId: balance.id
+        }
+      });
+    }
+
     await prisma.leaveRequest.delete({
       where: { id: leaveId }
     });
@@ -227,6 +292,29 @@ export async function adminDeleteLeave(leaveId) {
     });
 
     if (!leave) return { error: 'Leave request not found.' };
+
+    const requestedDays = Math.ceil((new Date(leave.toDate) - new Date(leave.fromDate)) / (1000 * 60 * 60 * 24)) + 1;
+    const balance = await prisma.leaveBalance.findFirst({
+      where: { userId: leave.applicantId, leaveTypeId: leave.leaveTypeId, year: new Date(leave.fromDate).getFullYear() }
+    });
+
+    if (balance) {
+      await prisma.leaveBalance.update({
+        where: { id: balance.id },
+        data: { usedDays: balance.usedDays - requestedDays }
+      });
+      await prisma.leaveBalanceTransaction.create({
+        data: {
+          userId: leave.applicantId,
+          leaveTypeId: leave.leaveTypeId,
+          amount: requestedDays,
+          reason: 'Leave application deleted by Admin',
+          performedById: session.userId,
+          transactionType: 'SYSTEM_REFUND',
+          leaveBalanceId: balance.id
+        }
+      });
+    }
 
     await prisma.leaveRequest.delete({
       where: { id: leaveId }
@@ -271,16 +359,21 @@ export async function getManagerApprovals() {
         pendingAtNodes: {
           some: { id: userNode.id }
         },
-        status: { in: ['PENDING'] } // We only show PENDING in the manager queue. If NEGOTIATING, it's back with the applicant.
+        status: { in: ['PENDING', 'APPROVED'] } // Observers see APPROVED leaves in their queue waiting for acknowledgment
       },
       include: {
         applicant: {
           include: {
             designation: true,
-            department: true
+            department: true,
+            leaveBalances: {
+              where: { year: new Date().getFullYear() },
+              include: { leaveType: true }
+            }
           }
         },
         leaveType: true,
+        pendingAtNodes: true,
         auditLogs: {
           include: {
             actor: {
@@ -335,21 +428,37 @@ export async function approveLeave(leaveId) {
     const nextParents = managerNode.parents;
     
     if (nextParents && nextParents.length > 0) {
-      // Still needs approval higher up
-      await prisma.leaveRequest.update({
-        where: { id: leaveId },
-        data: { 
-          // Disconnect all current nodes
-          pendingAtNodes: { set: [] },
-        }
-      });
-      // Connect new parents
-      await prisma.leaveRequest.update({
-        where: { id: leaveId },
-        data: {
-          pendingAtNodes: { connect: nextParents.map(p => ({ id: p.id })) }
-        }
-      });
+      // Check if ALL next parents are observers
+      const allObservers = nextParents.every(p => p.isObserver);
+
+      if (allObservers) {
+        // Auto-approve and route to observers
+        await prisma.leaveRequest.update({
+          where: { id: leaveId },
+          data: { 
+            status: 'APPROVED',
+            pendingAtNodes: { set: nextParents.map(p => ({ id: p.id })) },
+          }
+        });
+        
+        // Balance was already deducted upfront on submission.
+      } else {
+        // Still needs approval higher up
+        await prisma.leaveRequest.update({
+          where: { id: leaveId },
+          data: { 
+            // Disconnect all current nodes
+            pendingAtNodes: { set: [] },
+          }
+        });
+        // Connect new parents
+        await prisma.leaveRequest.update({
+          where: { id: leaveId },
+          data: {
+            pendingAtNodes: { connect: nextParents.map(p => ({ id: p.id })) }
+          }
+        });
+      }
     } else {
       // Final approval
       await prisma.leaveRequest.update({
@@ -360,25 +469,7 @@ export async function approveLeave(leaveId) {
         }
       });
       
-      // Deduct balance
-      const requestedDays = Math.ceil((new Date(leave.toDate) - new Date(leave.fromDate)) / (1000 * 60 * 60 * 24)) + 1;
-      
-      const balance = await prisma.leaveBalance.findUnique({
-        where: {
-          userId_leaveTypeId_year: {
-            userId: leave.applicantId,
-            leaveTypeId: leave.leaveTypeId,
-            year: new Date().getFullYear()
-          }
-        }
-      });
-      
-      if (balance) {
-        await prisma.leaveBalance.update({
-          where: { id: balance.id },
-          data: { usedDays: balance.usedDays + requestedDays }
-        });
-      }
+      // Balance was already deducted upfront on submission.
     }
 
     await prisma.leaveAuditLog.create({
@@ -398,6 +489,50 @@ export async function approveLeave(leaveId) {
   }
 }
 
+export async function acknowledgeLeave(leaveId) {
+  try {
+    const session = await getSession();
+    if (!session?.userId) return { error: 'Not authenticated' };
+
+    const leave = await prisma.leaveRequest.findUnique({
+      where: { id: leaveId },
+      include: { pendingAtNodes: true }
+    });
+
+    if (!leave) return { error: 'Leave request not found.' };
+
+    const user = await prisma.user.findUnique({ where: { id: session.userId } });
+    const managerNode = await prisma.hierarchyNode.findUnique({
+      where: { departmentId_designationId: { departmentId: user.departmentId, designationId: user.designationId } }
+    });
+
+    if (!managerNode) return { error: 'Your role is not mapped.' };
+
+    // Remove this node from pendingAtNodes
+    await prisma.leaveRequest.update({
+      where: { id: leaveId },
+      data: {
+        pendingAtNodes: { disconnect: { id: managerNode.id } }
+      }
+    });
+
+    await prisma.leaveAuditLog.create({
+      data: {
+        leaveRequestId: leaveId,
+        action: 'ACKNOWLEDGED',
+        actorId: session.userId,
+        nodeId: managerNode.id
+      }
+    });
+
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error acknowledging leave:', error);
+    return { error: 'Failed to acknowledge leave.' };
+  }
+}
+
 export async function rejectLeave(leaveId) {
   try {
     const session = await getSession();
@@ -407,6 +542,35 @@ export async function rejectLeave(leaveId) {
     const managerNode = await prisma.hierarchyNode.findUnique({
       where: { departmentId_designationId: { departmentId: user.departmentId, designationId: user.designationId } }
     });
+
+    const leave = await prisma.leaveRequest.findUnique({
+      where: { id: leaveId }
+    });
+
+    if (!leave) return { error: 'Leave request not found.' };
+
+    const requestedDays = Math.ceil((new Date(leave.toDate) - new Date(leave.fromDate)) / (1000 * 60 * 60 * 24)) + 1;
+    const balance = await prisma.leaveBalance.findFirst({
+      where: { userId: leave.applicantId, leaveTypeId: leave.leaveTypeId, year: new Date(leave.fromDate).getFullYear() }
+    });
+
+    if (balance) {
+      await prisma.leaveBalance.update({
+        where: { id: balance.id },
+        data: { usedDays: balance.usedDays - requestedDays }
+      });
+      await prisma.leaveBalanceTransaction.create({
+        data: {
+          userId: leave.applicantId,
+          leaveTypeId: leave.leaveTypeId,
+          amount: requestedDays,
+          reason: 'Leave application rejected',
+          performedById: session.userId,
+          transactionType: 'SYSTEM_REFUND',
+          leaveBalanceId: balance.id
+        }
+      });
+    }
 
     await prisma.leaveRequest.update({
       where: { id: leaveId },
@@ -430,7 +594,7 @@ export async function rejectLeave(leaveId) {
   }
 }
 
-export async function proposeNewDates(leaveId, fromDate, toDate) {
+export async function proposeNewDates(leaveId, fromDate, toDate, overrideReason) {
   try {
     const session = await getSession();
     if (!session?.userId) return { error: 'Not authenticated' };
@@ -440,12 +604,37 @@ export async function proposeNewDates(leaveId, fromDate, toDate) {
       where: { departmentId_designationId: { departmentId: user.departmentId, designationId: user.designationId } }
     });
 
+    const leave = await prisma.leaveRequest.findUnique({ where: { id: leaveId } });
+    if (!leave) return { error: 'Leave request not found.' };
+
+    const requestedDays = Math.ceil((new Date(toDate) - new Date(fromDate)) / (1000 * 60 * 60 * 24)) + 1;
+    
+    const balance = await prisma.leaveBalance.findUnique({
+      where: {
+        userId_leaveTypeId_year: {
+          userId: leave.applicantId,
+          leaveTypeId: leave.leaveTypeId,
+          year: new Date().getFullYear()
+        }
+      }
+    });
+
+    const originalRequestedDays = Math.ceil((new Date(leave.toDate) - new Date(leave.fromDate)) / (1000 * 60 * 60 * 24)) + 1;
+    const diff = requestedDays - originalRequestedDays;
+
+    const remainingBalance = balance ? balance.totalDays - balance.usedDays : 0;
+
+    if (diff > remainingBalance && !overrideReason) {
+      return { error: `Proposed duration adds ${diff} days, which exceeds available balance (${remainingBalance} days). An override reason is required.` };
+    }
+
     await prisma.leaveRequest.update({
       where: { id: leaveId },
       data: { 
         status: 'NEGOTIATING',
         managerSuggestedFromDate: new Date(fromDate),
-        managerSuggestedToDate: new Date(toDate)
+        managerSuggestedToDate: new Date(toDate),
+        overrideReason: overrideReason || null
       }
     });
 

@@ -9,6 +9,7 @@ import { Hierarchy } from '@/components/dashboard-views/Hierarchy';
 import { LeaveManagement } from '@/components/dashboard-views/LeaveManagement';
 import { UserManagement } from '@/components/dashboard-views/UserManagement';
 import { UserSettings } from '@/components/dashboard-views/UserSettings';
+import { RegistrationHub } from '@/components/dashboard-views/RegistrationHub';
 import { TeamLeaveArchive } from '@/components/dashboard-views/TeamLeaveArchive';
 
 export default function DashboardPage() {
@@ -47,6 +48,8 @@ export default function DashboardPage() {
       return <UserManagement />;
     case 'team-leaves':
       return <TeamLeaveArchive />;
+    case 'registration':
+      return <RegistrationHub />;
     default:
       return <MyApplicationsStatus />;
   }

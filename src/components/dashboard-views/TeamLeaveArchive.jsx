@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { getTeamLeaveHistory } from '@/app/actions/userManagement';
-import { Loader2, Search, History, CheckCircle2, XCircle, Clock, Calendar, ArrowRight, User } from 'lucide-react';
+import { Loader2, Search, History, CheckCircle2, XCircle, Clock, Calendar, ArrowRight, User, AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -309,6 +309,47 @@ export function TeamLeaveArchive() {
                 </DialogHeader>
 
                 <div className="py-4 space-y-6">
+                  {/* Override Alert Banner */}
+                  {(() => {
+                    const balance = selectedLeave.applicant?.leaveBalances?.find(b => b.leaveTypeId === selectedLeave.leaveTypeId);
+                    const isQuotaExceeded = balance ? balance.usedDays > balance.totalDays : false;
+
+                    if (selectedLeave.overrideReason) {
+                      const overrideLog = selectedLeave.auditLogs?.find(log => log.action === 'PROPOSED_DATES');
+                      const actorName = overrideLog?.actor?.name || 'A manager';
+                      const overrideDate = overrideLog ? format(new Date(overrideLog.createdAt), 'MMM d, yyyy') : 'an unknown date';
+                      return (
+                        <div className="flex gap-3 p-4 rounded-lg border border-destructive/30 bg-destructive/5 items-start mt-2 mb-2">
+                          <AlertCircle className="w-5 h-5 text-destructive mt-0.5 shrink-0" />
+                          <div className="space-y-1 w-full mt-0.5">
+                            <h4 className="text-sm font-semibold text-destructive">Quota Override Granted</h4>
+                            <div className="text-[13px] text-foreground/80 leading-tight">
+                              This request exceeds the available leave balance.<br />
+                              Override authorized by <span className="font-medium text-foreground">{actorName}</span> on {overrideDate}:
+                            </div>
+                            <div className="text-[13px] text-foreground/90 italic pl-3 border-l-2 border-destructive/40 py-0.5 mt-2.5">
+                              "{selectedLeave.overrideReason}"
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    } else if (isQuotaExceeded) {
+                      return (
+                        <div className="flex gap-3 p-4 rounded-lg border border-amber-500/30 bg-amber-500/5 items-start mt-2 mb-2">
+                          <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+                          <div className="space-y-1 w-full mt-0.5">
+                            <h4 className="text-sm font-semibold text-amber-600">Action Required: Quota Exceeded</h4>
+                            <div className="text-[13px] text-foreground/80 leading-tight">
+                              This request exceeds the applicant's available {selectedLeave.leaveType.name} balance for this year.<br />
+                              If it is approved, a justification for the quota override must be provided.
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+
                   <div className="space-y-6">
                     {/* Requested Dates */}
                     <div>

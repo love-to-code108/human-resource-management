@@ -1,13 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getSubordinates, deleteUser, editUser, updateUserLeaveBalance } from '@/app/actions/userManagement';
+import { getSubordinates, deleteUser, editUser, adjustUserLeaveBalance } from '@/app/actions/userManagement';
 import { getDepartments } from '@/app/actions/department';
 import { getDesignations } from '@/app/actions/designation';
-import { Loader2, Users, Search, ChevronRight, Briefcase, Building2, Calendar, Trash2, Edit2 } from 'lucide-react';
+import { exportSystemData } from '@/app/actions/export';
+import { Loader2, Users, Search, ChevronRight, Briefcase, Building2, Calendar, Trash2, Edit2, AlertCircle, Download } from 'lucide-react';
+import * as xlsx from 'xlsx';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import {
   Table,
   TableBody,
@@ -41,6 +45,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { UserActivityTimeline } from './UserActivityTimeline';
 
 export function UserManagement() {
   const [users, setUsers] = useState([]);
@@ -59,6 +64,7 @@ export function UserManagement() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [activeTab, setActiveTab] = useState('balances');
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState(null);
@@ -71,7 +77,9 @@ export function UserManagement() {
   });
 
   const [isAdjustLeaveDialogOpen, setIsAdjustLeaveDialogOpen] = useState(false);
-  const [adjustLeaveData, setAdjustLeaveData] = useState({ balanceId: null, leaveTypeId: null, leaveTypeName: '', currentTotal: 0, newTotal: 0 });
+  const [adjustLeaveData, setAdjustLeaveData] = useState({ balanceId: null, leaveTypeId: null, leaveTypeName: '', amount: '', reason: '' });
+
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     loadUsers();
@@ -196,8 +204,8 @@ export function UserManagement() {
       balanceId: balance.id,
       leaveTypeId: balance.leaveType.id,
       leaveTypeName: balance.leaveType.name,
-      currentTotal: balance.totalDays,
-      newTotal: balance.totalDays
+      amount: '',
+      reason: ''
     });
     setIsAdjustLeaveDialogOpen(true);
   };
@@ -205,16 +213,17 @@ export function UserManagement() {
   const handleAdjustLeaveSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    const res = await updateUserLeaveBalance(selectedUser.id, adjustLeaveData.leaveTypeId, parseInt(adjustLeaveData.newTotal));
+    const res = await adjustUserLeaveBalance(selectedUser.id, adjustLeaveData.leaveTypeId, adjustLeaveData.amount, adjustLeaveData.reason);
     if (res.success) {
       toast.success('Leave balance updated successfully');
       setIsAdjustLeaveDialogOpen(false);
       
+      const numAmount = parseInt(adjustLeaveData.amount, 10);
       setSelectedUser(prev => ({
         ...prev,
         leaveBalances: prev.leaveBalances.map(b => 
           b.id === adjustLeaveData.balanceId 
-            ? { ...b, totalDays: parseInt(adjustLeaveData.newTotal) } 
+            ? { ...b, totalDays: b.totalDays + numAmount } 
             : b
         )
       }));
@@ -225,12 +234,55 @@ export function UserManagement() {
     }
   };
 
+  const handleExport = async () => {
+    setIsExporting(true);
+    toast.info("Generating report...");
+    const res = await exportSystemData();
+    
+    if (res.success) {
+      try {
+        const wb = xlsx.utils.book_new();
+        
+        // 1. Employee Directory Sheet
+        const wsDirectory = xlsx.utils.json_to_sheet(res.directoryData);
+        xlsx.utils.book_append_sheet(wb, wsDirectory, "Employee Overview");
+        
+        // 2. Leave History Sheet
+        const wsLeaves = xlsx.utils.json_to_sheet(res.leaveLogData);
+        xlsx.utils.book_append_sheet(wb, wsLeaves, "Detailed Leave Log");
+        
+        // Save file
+        xlsx.writeFile(wb, `HR_System_Export_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+        toast.success("Report downloaded successfully");
+      } catch (err) {
+        console.error("Export error:", err);
+        toast.error("An error occurred while building the Excel file.");
+      }
+    } else {
+      toast.error(res.error || "Failed to fetch export data");
+    }
+    setIsExporting(false);
+  };
+
   return (
     <div className="flex-1 p-6 lg:p-10 animate-in fade-in duration-500 h-full overflow-y-auto">
       <div className="max-w-4xl mx-auto space-y-8 pt-4 pb-16">
-        <div className="space-y-2">
-          <h2 className="text-3xl font-semibold tracking-tight">User Management</h2>
-          <p className="text-muted-foreground">View the details and leave balances of your team members.</p>
+        <div className="flex justify-between items-start">
+          <div className="space-y-2">
+            <h2 className="text-3xl font-semibold tracking-tight">User Management</h2>
+            <p className="text-muted-foreground">View the details and leave balances of your team members.</p>
+          </div>
+          {isAdmin && (
+            <Button 
+              variant="outline" 
+              className="gap-2 shadow-sm border-border/50 bg-background" 
+              onClick={handleExport}
+              disabled={isExporting}
+            >
+              {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4 text-emerald-600" />}
+              {isExporting ? "Exporting..." : "Export Report"}
+            </Button>
+          )}
         </div>
 
         <div className="flex flex-row gap-3 items-center w-full">
@@ -392,60 +444,91 @@ export function UserManagement() {
                   </DialogTitle>
                 </DialogHeader>
 
-                <div className="grid gap-6 py-2">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground block mb-1 text-xs uppercase tracking-wider font-semibold">Designation</span>
-                      <span className="font-medium text-foreground">{selectedUser.designation?.name || 'Unassigned'}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block mb-1 text-xs uppercase tracking-wider font-semibold">Department</span>
-                      <span className="font-medium text-foreground">{selectedUser.department?.name || 'Unassigned'}</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="text-sm font-semibold mb-2 pb-2 border-b">
-                      Leave Balances ({new Date().getFullYear()})
-                    </h4>
-                    
-                    {(!selectedUser.leaveBalances || selectedUser.leaveBalances.length === 0) ? (
-                      <p className="text-sm text-muted-foreground py-4 text-center">
-                        No leave balances found for this year.
-                      </p>
-                    ) : (
-                      <div className="flex flex-col">
-                        {selectedUser.leaveBalances.map(balance => {
-                          const remaining = balance.totalDays - balance.usedDays;
-                          
-                          return (
-                            <div key={balance.id} className="flex items-center justify-between py-3 border-b last:border-0">
-                              <div>
-                                <span className="font-medium text-sm block">{balance.leaveType.name}</span>
-                                <span className="text-xs text-muted-foreground mt-0.5 block">{balance.usedDays} used out of {balance.totalDays}</span>
-                                </div>
-                              <div className="text-right shrink-0 flex items-center gap-4">
-                                <div className="text-right">
-                                  <span className="text-2xl font-semibold tracking-tight text-foreground">{remaining}</span>
-                                </div>
-                                {isAdmin && (
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                                    onClick={() => openAdjustLeave(balance)}
-                                    title="Adjust Leave Balance"
-                                  >
-                                    <Edit2 className="w-4 h-4" />
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                <div className="flex items-center gap-6 border-b mt-4">
+                  <button 
+                    onClick={() => setActiveTab('balances')}
+                    className={cn(
+                      "pb-2 text-sm font-medium transition-colors border-b-2",
+                      activeTab === 'balances' ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
                     )}
-                  </div>
+                  >
+                    Balances & Quotas
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('timeline')}
+                    className={cn(
+                      "pb-2 text-sm font-medium transition-colors border-b-2",
+                      activeTab === 'timeline' ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Activity Timeline
+                  </button>
+                </div>
+
+                <div className="py-2">
+                  {activeTab === 'balances' && (
+                    <div className="grid gap-6 animate-in fade-in slide-in-from-left-2 duration-300 pt-2">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground block mb-1 text-xs uppercase tracking-wider font-semibold">Designation</span>
+                          <span className="font-medium text-foreground">{selectedUser.designation?.name || 'Unassigned'}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block mb-1 text-xs uppercase tracking-wider font-semibold">Department</span>
+                          <span className="font-medium text-foreground">{selectedUser.department?.name || 'Unassigned'}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-semibold mb-2 pb-2 border-b">
+                          Leave Balances ({new Date().getFullYear()})
+                        </h4>
+                        
+                        {(!selectedUser.leaveBalances || selectedUser.leaveBalances.length === 0) ? (
+                          <p className="text-sm text-muted-foreground py-4 text-center">
+                            No leave balances found for this year.
+                          </p>
+                        ) : (
+                          <div className="flex flex-col">
+                            {selectedUser.leaveBalances.map(balance => {
+                              const remaining = balance.totalDays - balance.usedDays;
+                              
+                              return (
+                                <div key={balance.id} className="flex items-center justify-between py-3 border-b last:border-0">
+                                  <div>
+                                    <span className="font-medium text-sm block">{balance.leaveType.name}</span>
+                                    <span className="text-xs text-muted-foreground mt-0.5 block">{balance.usedDays} used out of {balance.totalDays}</span>
+                                    </div>
+                                  <div className="text-right shrink-0 flex items-center gap-4">
+                                    <div className="text-right">
+                                      <span className="text-2xl font-semibold tracking-tight text-foreground">{remaining}</span>
+                                    </div>
+                                    {isAdmin && (
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                        onClick={() => openAdjustLeave(balance)}
+                                        title="Adjust Leave Balance"
+                                      >
+                                        <Edit2 className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'timeline' && (
+                    <div className="animate-in fade-in slide-in-from-right-2 duration-300 pt-2 h-[450px] flex flex-col">
+                      <UserActivityTimeline userId={selectedUser.id} />
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -535,17 +618,26 @@ export function UserManagement() {
                 <div className="text-sm p-2 bg-muted rounded-md">{adjustLeaveData.leaveTypeName}</div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Total Allocated Days</label>
+                <label className="text-sm font-medium">Adjustment Amount (+ or -)</label>
                 <Input 
                   type="number" 
-                  min="0"
-                  value={adjustLeaveData.newTotal} 
-                  onChange={(e) => setAdjustLeaveData({...adjustLeaveData, newTotal: e.target.value})} 
+                  value={adjustLeaveData.amount} 
+                  onChange={(e) => setAdjustLeaveData({...adjustLeaveData, amount: e.target.value})} 
+                  placeholder="e.g. 2 or -1"
                   required 
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Increase this value to grant extra leaves (e.g., for overtime).
+                  Use positive numbers to add days, negative to deduct.
                 </p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Justification Reason</label>
+                <Input 
+                  value={adjustLeaveData.reason} 
+                  onChange={(e) => setAdjustLeaveData({...adjustLeaveData, reason: e.target.value})} 
+                  placeholder="Reason for adjustment"
+                  required 
+                />
               </div>
               <div className="pt-2 flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={() => setIsAdjustLeaveDialogOpen(false)}>Cancel</Button>
